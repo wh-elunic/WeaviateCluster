@@ -103,7 +103,7 @@ with col4:
 		st.session_state["active_button"] = "statistics"
 
 with col5:
-	if st.button("Show Collections List", use_container_width=True):
+	if st.button("Collections Configuration", use_container_width=True):
 		if st.session_state.get("client_ready"):
 			collection_list = list_collections(st.session_state.client)
 			if collection_list:
