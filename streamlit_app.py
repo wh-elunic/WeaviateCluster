@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from connection import connect_to_weaviate, status
 from collection import aggregate_collections, get_schema, list_collections, process_collection_config, fetch_collection_config
-from cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, display_shards_table
+from cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, display_shards_table, get_metadata
 
 # Initialize the client and check the connection status
 def initialize_client(cluster_endpoint, api_key):
@@ -42,7 +42,7 @@ st.sidebar.title("Weaviate Connection 🔗")
 cluster_endpoint = st.sidebar.text_input(
 	"Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)"
 )
-api_key = st.sidebar.text_input("Cluster API Key", placeholder="Enter Cluster Admin API Key", type="password")
+api_key = st.sidebar.text_input("Cluster API Key", placeholder="Enter Cluster Read API Key", type="password")
 
 if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
 	if not cluster_endpoint or not api_key:
@@ -86,9 +86,11 @@ st.markdown("---")
 # Horizontal buttons layout
 col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
+col6 = st.columns([1])
+
 with col1:
-	if st.button("Shards", use_container_width=True):
-		st.session_state["active_button"] = "shards"
+	if st.button("Nodes & Shards", use_container_width=True):
+		st.session_state["active_button"] = "nodes"
 
 with col2:
 	if st.button("Collections & Tenants", use_container_width=True):
@@ -114,6 +116,11 @@ with col5:
 		else:
 			st.warning("Connect to Weaviate first!")
 
+col6 = st.columns([1])
+with col6[0]:
+	if st.button("Metadata"):
+		st.session_state["active_button"] = "metadata"
+
 # Divider
 st.markdown("---")
 
@@ -122,15 +129,30 @@ if "active_button" in st.session_state:
 
 	if st.session_state.get("client_ready"):
 
-		if active_button == "shards":
+		if active_button == "nodes":
+
 			node_info = get_shards_info(st.session_state.client)
+
 			if node_info:
-				shards_data = process_shards_data(node_info)
-				shards_table = display_shards_table(shards_data)
+				# Process data into node and shard tables
+				processed_data = process_shards_data(node_info)
+				node_table, shard_table = display_shards_table(processed_data)
+
+				# Display node details
+				st.markdown(f"#### Node Details")
+				if not node_table.empty:
+					st.dataframe(node_table, use_container_width=True)
+				else:
+					st.warning("No node details available.")
+
+				# Display shard details
 				st.markdown(f"#### Shard Details")
-				st.dataframe(shards_table, use_container_width=True)
+				if not shard_table.empty:
+					st.dataframe(shard_table, use_container_width=True)
+				else:
+					st.warning("No shard details available.")
 			else:
-				st.error("Failed to retrieve shard details.")
+				st.error("Failed to retrieve node and shard details.")
 
 		elif active_button == "collections":
 			st.markdown(f"#### Collections & Tenants Details")
@@ -241,6 +263,31 @@ if "active_button" in st.session_state:
 
 			except Exception as e:
 				st.error(f"Error fetching cluster statistics: {e}")
+
+		elif active_button == "metadata":
+			st.markdown(f"#### Cluster Metadata Details")
+			metadata_result = get_metadata(cluster_endpoint, api_key)
+
+			if "error" in metadata_result:
+				st.error(metadata_result["error"])
+			else:
+				# Display general metadata
+				general_metadata_df = metadata_result["general_metadata_df"]
+				st.markdown("###### General Metadata Information")
+				st.dataframe(general_metadata_df, use_container_width=True)
+
+				# Display module details
+				modules_df = metadata_result["modules_df"]
+				if not modules_df.empty:
+					st.markdown("###### Module Details")
+					st.dataframe(modules_df, use_container_width=True)
+
+				# Display nested module details (if available)
+				nested_module_data = metadata_result["nested_module_data"]
+				if nested_module_data:
+					for module_name, nested_df in nested_module_data.items():
+						st.markdown(f"###### Details for Module: **{module_name}**")
+						st.dataframe(nested_df, use_container_width=True)
 
 	else:
 		st.warning("Connect to Weaviate first!")
