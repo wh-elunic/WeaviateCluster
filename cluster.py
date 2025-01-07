@@ -7,22 +7,41 @@ def get_shards_info(client):
 	return node_info
 
 def process_shards_data(node_info):
-	data = []
+	node_data = []
+	shard_data = []
+
 	for node in node_info:
+		# Node-level data
+		node_data.append({
+			"Node Name": node.name,
+			"Git Hash": node.git_hash,
+			"Version": node.version,
+			"Status": node.status,
+			"Object Count (Stats)": node.stats.object_count,
+			"Shard Count (Stats)": node.stats.shard_count,
+		})
+
+		# Shard-level data for each node
 		for shard in node.shards:
-			data.append({
+			shard_data.append({
 				"Node Name": node.name,
 				"Class": shard.collection,
 				"Shard Name": shard.name,
 				"Object Count": shard.object_count,
 				"Index Status": shard.vector_indexing_status,
+				"Vector Queue Length": shard.vector_queue_length,
+				"Compressed": shard.compressed,
 				"Loaded": shard.loaded,
 			})
-	return data
 
-def display_shards_table(data):
-	df = pd.DataFrame(data)
-	return df
+	return {
+		"node_data": pd.DataFrame(node_data),
+		"shard_data": pd.DataFrame(shard_data),
+	}
+
+
+def display_shards_table(processed_data):
+	return processed_data["node_data"], processed_data["shard_data"]
 
 # Get cluster statistics
 def fetch_cluster_statistics(cluster_url, api_key):
@@ -76,3 +95,54 @@ def process_statistics(stats):
 		flattened_data.append(base_data)
 
 	return {"data": flattened_data, "synchronized": synchronized}
+
+def get_metadata(cluster_url, api_key):
+	try:
+		url = f"{cluster_url}/v1/meta"
+		headers = {"Authorization": f"Bearer {api_key}"}
+		response = requests.get(url, headers=headers)
+		response.raise_for_status()
+
+		metadata = response.json()
+
+		# General metadata (excluding 'modules')
+		general_metadata = {
+			key: value for key, value in metadata.items() if key != "modules"
+		}
+		general_metadata_df = pd.DataFrame(general_metadata.items(), columns=["Key", "Value"])
+
+		# Extract module details
+		modules_data = metadata.get("modules", {})
+		module_list = []
+		nested_module_data = {}
+
+		for module_name, module_details in modules_data.items():
+			# Basic module info
+			module_info = {
+				"Module Name": module_name,
+				"Description": module_details.get("name", "N/A"),
+				"Documentation URL": module_details.get("documentationHref", "N/A"),
+			}
+			module_list.append(module_info)
+
+			# Nested details (if present) for a specific module
+			nested_data = {
+				key: value
+				for key, value in module_details.items()
+				if key not in ["name", "documentationHref"]
+			}
+			if nested_data:
+				nested_module_data[module_name] = pd.DataFrame(
+					nested_data.items(), columns=["Key", "Value"]
+				)
+
+		modules_df = pd.DataFrame(module_list) if module_list else pd.DataFrame()
+
+		return {
+			"general_metadata_df": general_metadata_df,
+			"modules_df": modules_df,
+			"nested_module_data": nested_module_data,
+		}
+
+	except requests.exceptions.RequestException as e:
+		return {"error": f"Failed to fetch cluster metadata: {e}"}
