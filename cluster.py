@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+from collections import defaultdict
 
 # Get shards information
 def get_shards_info(client):
@@ -42,6 +43,37 @@ def process_shards_data(node_info):
 
 def display_shards_table(processed_data):
 	return processed_data["node_data"], processed_data["shard_data"]
+
+def check_shard_consistency(node_info):
+    """
+    Check consistency of shard object counts across nodes.
+    Returns a DataFrame of inconsistencies, or None if consistent.
+    """
+    shard_data = defaultdict(list)
+    for node in node_info:
+        # node.shards is a list of shards for this node
+        for shard in node.shards:
+            shard_key = (shard.collection, shard.name)
+            shard_data[shard_key].append((node.name, shard.object_count))
+
+    inconsistent_shards = []
+    for (collection, shard_name), details in shard_data.items():
+        object_counts = [obj_count for _, obj_count in details]
+        # Inconsistent if not all object counts are identical
+        if len(set(object_counts)) > 1:
+            for node_name, object_count in details:
+                inconsistent_shards.append({
+                    "Collection": collection,
+                    "Shard": shard_name,
+                    "Node": node_name,
+                    "Object Count": object_count,
+                })
+
+    if inconsistent_shards:
+        df_inconsistent_shards = pd.DataFrame(inconsistent_shards)
+        return df_inconsistent_shards
+
+    return None
 
 # Get cluster statistics
 def fetch_cluster_statistics(cluster_url, api_key):
