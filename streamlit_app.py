@@ -3,7 +3,7 @@ import pandas as pd
 
 from connection import connect_to_weaviate, status
 from collection import aggregate_collections, get_schema, list_collections, process_collection_config, fetch_collection_config
-from cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, display_shards_table, get_metadata
+from cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, display_shards_table, get_metadata, check_shard_consistency
 
 # --------------------------------------------------------------------------
 # Helper Functions
@@ -72,6 +72,22 @@ def action_nodes_and_shards():
 	else:
 		st.error("Failed to retrieve node and shard details.")
 
+def action_check_shard_consistency():
+    """
+    Fetch node info and check for shard consistency.
+    Display results in a table if inconsistencies are found.
+    """
+    node_info = get_shards_info(st.session_state.client)
+    if node_info:
+        # Call the function from cluster.py
+        df_inconsistent_shards = check_shard_consistency(node_info)
+        if df_inconsistent_shards is not None:
+            st.markdown("#### Inconsistent Shards Found")
+            st.dataframe(df_inconsistent_shards, use_container_width=True)
+        else:
+            st.success("All shards are consistent.")
+    else:
+        st.error("Failed to retrieve node and shard details.")
 
 def action_collections():
 	st.markdown("#### Collections & Tenants Details")
@@ -285,6 +301,7 @@ st.markdown("---")
 # --------------------------------------------------------------------------
 col1, col2, col3 = st.columns([1, 1, 1])
 col4, col5, col6 = st.columns([1, 1, 1])
+col7 = st.columns([1])
 
 # Dictionary: button name => action function
 button_actions = {
@@ -294,6 +311,7 @@ button_actions = {
 	"collections_configuration": lambda: action_collections_configuration(cluster_endpoint, api_key),
 	"statistics": lambda: action_statistics(cluster_endpoint, api_key),
 	"metadata": lambda: action_metadata(cluster_endpoint, api_key),
+	"check_shard_consistency": action_check_shard_consistency,
 }
 
 with col1:
@@ -319,6 +337,10 @@ with col5:
 with col6:
 	if st.button("Metadata",use_container_width=True):
 		st.session_state["active_button"] = "metadata"
+
+with col7[0]:
+    if st.button("Check Shard Consistency"):
+        st.session_state["active_button"] = "check_shard_consistency"
 
 st.markdown("---")
 
