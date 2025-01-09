@@ -1,5 +1,4 @@
 import pandas as pd
-import streamlit as st
 import requests
 
 def aggregate_collections(client):
@@ -55,6 +54,7 @@ def aggregate_collections(client):
 
 	except Exception as e:
 		return {"error": str(e)}
+
 
 def get_schema(client):
 	try:
