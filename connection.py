@@ -1,6 +1,12 @@
 import weaviate
 
-# Connect to Weaviate
+# Connect to Weaviate Locally
+def connect_weaviate_local():
+	return weaviate.connect_to_local(
+		skip_init_checks=True
+	)
+
+# Connect to Weaviate Cloud
 def connect_to_weaviate(cluster_endpoint, api_key):
 	cluster_endpoint = cluster_endpoint
 	api_key = api_key

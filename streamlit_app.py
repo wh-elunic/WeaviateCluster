@@ -1,22 +1,35 @@
 import streamlit as st
 import pandas as pd
 
-from connection import connect_to_weaviate, status
+from connection import connect_to_weaviate, connect_weaviate_local, status
 from collection import aggregate_collections, get_schema, list_collections, process_collection_config, fetch_collection_config
 from cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, display_shards_table, get_metadata, check_shard_consistency
 
 # --------------------------------------------------------------------------
 # Helper Functions
 # --------------------------------------------------------------------------
-def initialize_client(cluster_endpoint, api_key):
+def initialize_client(cluster_endpoint, api_key, use_local=False):
+	"""
+	Initializes a local or cloud Weaviate client, 
+	stores client in st.session_state, 
+	and returns True if connected/ready.
+	"""
+
 	if "client" not in st.session_state:
 		st.session_state.client = None
 		st.session_state.client_ready = False
 		st.session_state.server_version = "N/A"
 		st.session_state.client_version = "N/A"
+		st.session_state.cluster_url = "" # For direct requests
 
 	try:
-		client = connect_to_weaviate(cluster_endpoint, api_key)
+		if use_local:
+			client = connect_weaviate_local()
+			st.session_state.cluster_url = "http://localhost:8080"
+		else:
+			client = connect_to_weaviate(cluster_endpoint, api_key)
+			st.session_state.cluster_url = cluster_endpoint
+
 		if client:
 			ready, server_version, client_version = status(client)
 			st.session_state.client = client
@@ -24,6 +37,7 @@ def initialize_client(cluster_endpoint, api_key):
 			st.session_state.server_version = server_version
 			st.session_state.client_version = client_version
 			return True
+
 	except Exception as e:
 		st.sidebar.error(f"Connection Error: {e}")
 		st.session_state.client = None
@@ -31,7 +45,6 @@ def initialize_client(cluster_endpoint, api_key):
 		return False
 
 	return False
-
 
 def disconnect_client():
 	if st.session_state.get("client_ready"):
@@ -42,10 +55,12 @@ def disconnect_client():
 			except Exception as e:
 				st.sidebar.error(f"Error while disconnecting: {e}")
 
+	# Reset
 	st.session_state.client = None
 	st.session_state.client_ready = False
 	st.session_state.server_version = "N/A"
 	st.session_state.client_version = "N/A"
+	st.session_state.cluster_url = ""
 	st.sidebar.warning("Disconnected!")
 
 
@@ -73,21 +88,21 @@ def action_nodes_and_shards():
 		st.error("Failed to retrieve node and shard details.")
 
 def action_check_shard_consistency():
-    """
-    Fetch node info and check for shard consistency.
-    Display results in a table if inconsistencies are found.
-    """
-    node_info = get_shards_info(st.session_state.client)
-    if node_info:
-        # Call the function from cluster.py
-        df_inconsistent_shards = check_shard_consistency(node_info)
-        if df_inconsistent_shards is not None:
-            st.markdown("#### Inconsistent Shards Found")
-            st.dataframe(df_inconsistent_shards, use_container_width=True)
-        else:
-            st.success("All shards are consistent.")
-    else:
-        st.error("Failed to retrieve node and shard details.")
+	"""
+	Fetch node info and check for shard consistency.
+	Display results in a table if inconsistencies are found.
+	"""
+	node_info = get_shards_info(st.session_state.client)
+	if node_info:
+		# Call the function from cluster.py
+		df_inconsistent_shards = check_shard_consistency(node_info)
+		if df_inconsistent_shards is not None:
+			st.markdown("#### Inconsistent Shards Found")
+			st.dataframe(df_inconsistent_shards, use_container_width=True)
+		else:
+			st.success("All shards are consistent.")
+	else:
+		st.error("Failed to retrieve node and shard details.")
 
 def action_collections():
 	st.markdown("#### Collections & Tenants Details")
@@ -204,54 +219,54 @@ def action_metadata(cluster_endpoint, api_key):
 
 # Collections Configuration
 def action_collections_configuration(cluster_endpoint, api_key):
-    """
-    This function is triggered by the "Collections Configuration" button.
-    It:
-      1. Checks if connected (else warns).
-      2. Loads collection list once (and stores in session_state).
-      3. Displays a selectbox to pick a collection.
-      4. Provides a "Get Configuration" button to fetch + display config immediately.
-    """
+	"""
+	This function is triggered by the "Collections Configuration" button.
+	It:
+	  1. Checks if connected (else warns).
+	  2. Loads collection list once (and stores in session_state).
+	  3. Displays a selectbox to pick a collection.
+	  4. Provides a "Get Configuration" button to fetch + display config immediately.
+	"""
 
-    # Load collections list if not already loaded in session_state
-    if "collections_list" not in st.session_state:
-        collection_list = list_collections(st.session_state.client)
-        if collection_list and not isinstance(collection_list, dict):
-            st.session_state["collections_list"] = collection_list
-        else:
-            st.session_state["collections_list"] = []
+	# Load collections list if not already loaded in session_state
+	if "collections_list" not in st.session_state:
+		collection_list = list_collections(st.session_state.client)
+		if collection_list and not isinstance(collection_list, dict):
+			st.session_state["collections_list"] = collection_list
+		else:
+			st.session_state["collections_list"] = []
 
-    # Show a selectbox for the user to choose a collection
-    #    By giving 'key="selected_collection"', Streamlit remembers user selection
-    if st.session_state["collections_list"]:
-        selected_collection = st.selectbox(
-            "Select a Collection",
-            st.session_state["collections_list"],
-            key="selected_collection",  # store user choice in session_state
-        )
-    else:
-        # If no collections, just warn
-        st.warning("No collections available to display.")
-        return
+	# Show a selectbox for the user to choose a collection
+	#    By giving 'key="selected_collection"', Streamlit remembers user selection
+	if st.session_state["collections_list"]:
+		selected_collection = st.selectbox(
+			"Select a Collection",
+			st.session_state["collections_list"],
+			key="selected_collection", # store user choice in session_state
+		)
+	else:
+		# If no collections, just warn
+		st.warning("No collections available to display.")
+		return
 
-    # Button to fetch the chosen collection’s config
-    #    When pressed, triggers a rerun, but we still have the user’s selection in session_state
-    if st.button("Get Configuration", use_container_width=True):
-        config = fetch_collection_config(cluster_endpoint, api_key, selected_collection)
-        if "error" in config:
-            st.error(config["error"])
-        else:
-            processed_config = process_collection_config(config)
-            st.markdown(f"##### **{selected_collection}** Configurations: ")
+	# Button to fetch the chosen collection’s config
+	#    When pressed, triggers a rerun, but we still have the user’s selection in session_state
+	if st.button("Get Configuration", use_container_width=True):
+		config = fetch_collection_config(cluster_endpoint, api_key, selected_collection)
+		if "error" in config:
+			st.error(config["error"])
+		else:
+			processed_config = process_collection_config(config)
+			st.markdown(f"##### **{selected_collection}** Configurations: ")
 
-            # Same logic you had before for displaying processed config
-            for section, details in processed_config.items():
-                st.markdown(f"###### {section}:")
-                if isinstance(details, dict):
-                    df = pd.DataFrame(details.items(), columns=["Key", "Value"])
-                    st.dataframe(df, use_container_width=True)
-                else:
-                    st.markdown(f"**{details}**")
+			# Same logic you had before for displaying processed config
+			for section, details in processed_config.items():
+				st.markdown(f"###### {section}:")
+				if isinstance(details, dict):
+					df = pd.DataFrame(details.items(), columns=["Key", "Value"])
+					st.dataframe(df, use_container_width=True)
+				else:
+					st.markdown(f"**{details}**")
 
 # --------------------------------------------------------------------------
 # Streamlit Page Config
@@ -265,27 +280,42 @@ st.set_page_config(
 
 st.sidebar.title("Weaviate Connection 🔗")
 
-cluster_endpoint = st.sidebar.text_input(
-	"Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)"
-)
-api_key = st.sidebar.text_input(
-	"Cluster API Key", placeholder="Enter Cluster Read API Key", type="password"
-)
+use_local = st.sidebar.checkbox("Use local cluster", value=False)
 
-# Connect/Disconnect
+if use_local:
+	st.sidebar.info("Local Weaviate at http://localhost:8080")
+	cluster_endpoint = "http://localhost:8080"
+	api_key = ""
+else:
+	cluster_endpoint = st.sidebar.text_input(
+		"Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)"
+	)
+	api_key = st.sidebar.text_input(
+		"Cluster API Key", placeholder="Enter Cluster Read API Key", type="password"
+	)
+
 if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
-	if not cluster_endpoint or not api_key:
-		st.sidebar.error("Please insert the cluster endpoint and API key!")
-	else:
-		if initialize_client(cluster_endpoint, api_key):
-			st.sidebar.success("Connected successfully!")
+	if use_local:
+		# Connect to local
+		if initialize_client(cluster_endpoint, api_key, use_local=True):
+			st.sidebar.success("Connected to local successfully!")
 		else:
 			st.sidebar.error("Connection failed!")
+	else:
+		# Cloud
+		if not cluster_endpoint or not api_key:
+			st.sidebar.error("Please insert the cluster endpoint and API key!")
+		else:
+			if initialize_client(cluster_endpoint, api_key, use_local=False):
+				st.sidebar.success("Connected successfully!")
+			else:
+				st.sidebar.error("Connection failed!")
 
+# 4) Disconnect Button
 if st.sidebar.button("Disconnect", use_container_width=True, type="primary"):
 	disconnect_client()
 
-# Connection Info
+# 5) Connection Info
 if st.session_state.get("client_ready"):
 	st.sidebar.info("Connection Status: Ready")
 	st.sidebar.info(f"Client Version: {st.session_state.client_version}")
@@ -339,8 +369,8 @@ with col6:
 		st.session_state["active_button"] = "metadata"
 
 with col7[0]:
-    if st.button("Check Shard Consistency"):
-        st.session_state["active_button"] = "check_shard_consistency"
+	if st.button("Check Shard Consistency"):
+		st.session_state["active_button"] = "check_shard_consistency"
 
 st.markdown("---")
 
