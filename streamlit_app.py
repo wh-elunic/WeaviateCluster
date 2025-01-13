@@ -31,10 +31,10 @@ if use_local:
 	api_key = ""
 else:
 	cluster_endpoint = st.sidebar.text_input(
-		"Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)", value="https://lqf2g1z7ske1xq4q0mevq.c0.europe-west3.gcp.weaviate.cloud"
+		"Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)"
 	)
 	api_key = st.sidebar.text_input(
-		"Cluster API Key", placeholder="Enter Cluster Read API Key", type="password", value="HKNmLBhdeXObNm6fAB0fgH0LMsuSON12UYS9"
+		"Cluster API Key", placeholder="Enter Cluster Read API Key", type="password"
 	)
 
 if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
