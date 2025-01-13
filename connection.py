@@ -1,9 +1,13 @@
 import weaviate
+from weaviate.config import AdditionalConfig, Timeout, ConnectionConfig
 
 # Connect to Weaviate Locally
 def connect_weaviate_local():
 	return weaviate.connect_to_local(
-		skip_init_checks=True
+		skip_init_checks=True,
+		additional_config=AdditionalConfig(
+			timeout=Timeout(init=60, query=300, insert=300)
+		) 
 	)
 
 # Connect to Weaviate Cloud
@@ -13,7 +17,11 @@ def connect_to_weaviate(cluster_endpoint, api_key):
 
 	client = weaviate.connect_to_wcs(
 		cluster_url=cluster_endpoint,
-		auth_credentials=weaviate.auth.AuthApiKey(api_key)
+		auth_credentials=weaviate.auth.AuthApiKey(api_key),
+		skip_init_checks=True,
+		additional_config=AdditionalConfig(
+			timeout=Timeout(init=30, query=300, insert=300)
+			) 
 		)
 	return client
 
