@@ -1,6 +1,11 @@
 import pandas as pd
 import requests
 
+def get_collectios_count(client):
+	collections = client.collections.list_all()
+	collection_count = len(collections)
+	return collection_count
+
 def aggregate_collections(client):
 	try:
 		collections = client.collections.list_all()
@@ -89,14 +94,37 @@ def process_collection_config(config):
 	if not config:
 		return {"error": "No configuration available"}
 
+	# Base keys to display for both scenarios (single vector and named vectors)
 	keys_to_display = {
-		"Generative Config": config.get("moduleConfig", {}).get("generative-openai", {}),
 		"Inverted Index Config": config.get("invertedIndexConfig", {}),
 		"Multi-Tenancy Config": config.get("multiTenancyConfig", {}),
 		"Replication Config": config.get("replicationConfig", {}),
-		"Reranker Config": config.get("moduleConfig", {}).get("reranker-cohere", {}),
 		"Sharding Config": config.get("shardingConfig", {}),
-		"Vector Index Config": config.get("vectorIndexConfig", {}),
-		"Vectorizer Config": config.get("moduleConfig", {}).get("text2vec-openai", {}),
 	}
+
+	# Dynamically add all module configurations as separate sections
+	module_configs = config.get("moduleConfig", {})
+	for mod_name, mod_conf in module_configs.items():
+		# Create a distinct section name for each module configuration
+		section_name = f"{mod_name}"
+		keys_to_display[section_name] = mod_conf
+
+	# Handle single vector configuration scenario
+	if "vectorIndexConfig" in config and "vectorizer" in config:
+		keys_to_display["vectorIndexType"] = config.get("vectorIndexType", {})
+		keys_to_display["Vector Index Config"] = config.get("vectorIndexConfig", {})
+
+	# Handle named vector configurations scenario
+	if "vectorConfig" in config:
+		named_vectors_info = {}
+		for vector_name, vector_details in config["vectorConfig"].items():
+			# Gather details for each named vector dynamically
+			info = {
+				"Vector Index Type": vector_details.get("vectorIndexType"),
+				"Vector Index Config": vector_details.get("vectorIndexConfig", {}),
+				"Vectorizer": vector_details.get("vectorizer", {})
+			}
+			named_vectors_info[vector_name] = info
+		keys_to_display["Named Vectors Config"] = named_vectors_info
+
 	return keys_to_display

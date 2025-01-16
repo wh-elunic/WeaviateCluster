@@ -8,7 +8,6 @@ def main():
 
     if not st.session_state.get("client_ready"):
         st.warning("Please connect first to Weaviate in Cluster Operations Page!")
-        st.stop()
 
     st.title("Objects")
 

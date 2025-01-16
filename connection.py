@@ -20,12 +20,12 @@ def connect_to_weaviate(cluster_endpoint, api_key):
 		auth_credentials=weaviate.auth.AuthApiKey(api_key),
 		skip_init_checks=True,
 		additional_config=AdditionalConfig(
-			timeout=Timeout(init=30, query=300, insert=300)
+			timeout=Timeout(init=60, query=300, insert=300)
 			) 
 		)
 	return client
 
-# Ccheck status and print versions
+# Weaviate Server & Client status and version
 def status(client):
 	try:
 		ready = client.is_ready()

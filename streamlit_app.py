@@ -1,8 +1,6 @@
 import streamlit as st
-import pandas as pd
-
 from utils.cluster.functions import initialize_client, disconnect_client
-from utils.cluster.functions import action_check_shard_consistency, action_collections, action_collections_configuration, action_metadata, action_nodes_and_shards, action_schema, action_statistics
+from utils.cluster.functions import action_check_shard_consistency, action_aggregate_collections_tenants, action_collections_configuration, action_metadata, action_nodes_and_shards, action_schema, action_statistics
 from utils.connection.navigation import navigate
 
 # ------------------------ß--------------------------------------------------
@@ -21,6 +19,8 @@ st.set_page_config(
 # --------------------------------------------------------------------------
 navigate()
 
+st.sidebar.markdown("---")
+
 st.sidebar.title("Weaviate Connection 🔗")
 
 use_local = st.sidebar.checkbox("Local Cluster", value=False)
@@ -38,6 +38,7 @@ else:
 	)
 
 if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
+
 	if use_local:
 		# Connect to local
 		if initialize_client(cluster_endpoint, api_key, use_local=True):
@@ -54,11 +55,10 @@ if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
 			else:
 				st.sidebar.error("Connection failed!")
 
-# 4) Disconnect Button
 if st.sidebar.button("Disconnect", use_container_width=True, type="primary"):
 	disconnect_client()
 
-# 5) Connection Info
+# Connection Info
 if st.session_state.get("client_ready"):
 	st.sidebar.info("Connection Status: Ready")
 	st.sidebar.info(f"Client Version: {st.session_state.client_version}")
@@ -79,8 +79,8 @@ col7 = st.columns([1])
 # Dictionary: button name => action function
 button_actions = {
 	"nodes": action_nodes_and_shards,
-	"collections": action_collections,
-	"schema": action_schema,
+	"aggregate_collections_tenants": action_aggregate_collections_tenants,
+	"collection_properties": action_schema,
 	"collections_configuration": lambda: action_collections_configuration(cluster_endpoint, api_key),
 	"statistics": lambda: action_statistics(cluster_endpoint, api_key),
 	"metadata": lambda: action_metadata(cluster_endpoint, api_key),
@@ -88,12 +88,12 @@ button_actions = {
 }
 
 with col1:
-	if st.button("Collections & Tenants", use_container_width=True):
-		st.session_state["active_button"] = "collections"
+	if st.button("Aggregate Collections & Tenants", use_container_width=True):
+		st.session_state["active_button"] = "aggregate_collections_tenants"
 
 with col2:
-	if st.button("Schema", use_container_width=True):
-		st.session_state["active_button"] = "schema"
+	if st.button("Collection Properties", use_container_width=True):
+		st.session_state["active_button"] = "collection_properties"
 
 with col3:
 	if st.button("Collections Configuration", use_container_width=True):
