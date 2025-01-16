@@ -8,7 +8,7 @@ Interact with and manage Weaviate Cluster operations. This app provides tools to
 
 	•	Shards & Nodes: View shard details across nodes as well as Node details.
 	•	Collections & Tenants: Aggregate and view collections and their tenants.
-	•   Collections Configuration: Explore a collection configurations.
+	•       Collections Configuration: Explore a collection configurations.
 	•	Schema: Fetch and view the schema configuration of your Weaviate cluster.
 	•	Statistics: Analyze cluster synchronization and node statistics.
 	•	Metadata: View cluster metadata & modules.
