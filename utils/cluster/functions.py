@@ -1,10 +1,8 @@
-
 import pandas as pd
 import streamlit as st
-
 from connection import connect_to_weaviate, connect_weaviate_local, status
-from utils.cluster.collection import aggregate_collections, get_schema, list_collections, process_collection_config, fetch_collection_config
-from utils.cluster.cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, display_shards_table, get_metadata, check_shard_consistency
+from utils.cluster.collection import aggregate_collections, get_schema, list_collections, process_collection_config, fetch_collection_config, get_collectios_count
+from utils.cluster.cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, get_metadata, check_shard_consistency
 
 # --------------------------------------------------------------------------
 # Helper Functions
@@ -63,7 +61,7 @@ def disconnect_client():
 	st.session_state.server_version = "N/A"
 	st.session_state.client_version = "N/A"
 	st.session_state.cluster_url = ""
-	st.sidebar.warning("Disconnected!")
+	st.sidebar.warning("Reset Connection!")
 
 # --------------------------------------------------------------------------
 # Action Handlers (one function per button)
@@ -72,13 +70,22 @@ def action_nodes_and_shards():
 	node_info = get_shards_info(st.session_state.client)
 	if node_info:
 		processed_data = process_shards_data(node_info)
-		node_table, shard_table = display_shards_table(processed_data)
+		node_table = processed_data["node_data"]
+		shard_table = processed_data["shard_data"]
+		collection_shard_table = processed_data["collection_shard_data"]
 
 		st.markdown("#### Node Details")
 		if not node_table.empty:
 			st.dataframe(node_table, use_container_width=True)
 		else:
 			st.warning("No node details available.")
+
+		# Display Shard Collections Details Count under Node Details
+		st.markdown("#### Shard Count")
+		if not collection_shard_table.empty:
+			st.dataframe(collection_shard_table, use_container_width=True)
+		else:
+			st.warning("No shard collection details available.")
 
 		st.markdown("#### Shard Details")
 		if not shard_table.empty:
@@ -105,8 +112,8 @@ def action_check_shard_consistency():
 	else:
 		st.error("Failed to retrieve node and shard details.")
 
-def action_collections():
-	st.markdown("#### Collections & Tenants Details")
+def action_aggregate_collections_tenants():
+	st.markdown("###### Collections & Tenants aggregation can take a while to complete due to the large amount of data and the loop through all collections & Tenants.")
 	result = aggregate_collections(st.session_state.client)
 	if "error" in result:
 		st.error(f"Error retrieving collections: {result['error']}")
@@ -130,24 +137,12 @@ def action_schema():
 	if "error" in schema:
 		st.error(schema["error"])
 	elif schema:
-		st.markdown("#### Schema Details")
+		st.markdown("#### Collection Properties")
 		for collection_name, collection_details in schema.items():
 			with st.expander(f"Collection: {collection_name}", expanded=False):
 				st.markdown(f"**Name:** {collection_details.name}")
 				st.markdown(f"**Description:** {collection_details.description or 'None'}")
 				st.markdown(f"**Vectorizer:** {collection_details.vectorizer or 'None'}")
-
-				if collection_details.generative_config:
-					st.markdown("**Generative Config:**")
-					st.markdown(f"- Generative Model: {collection_details.generative_config.model or 'None'}")
-				else:
-					st.markdown("**Generative Config:** None")
-
-				if collection_details.reranker_config:
-					st.markdown(f"**Reranker Config:** {collection_details.reranker_config.reranker or 'None'}")
-				else:
-					st.markdown("**Reranker Config:** None")
-
 				st.markdown("#### Properties:")
 				properties_data = []
 				for prop in collection_details.properties:
@@ -215,17 +210,13 @@ def action_metadata(cluster_endpoint, api_key):
 				st.markdown(f"###### Details for Module: **{module_name}**")
 				st.dataframe(nested_df, use_container_width=True)
 
-# Collections Configuration
 def action_collections_configuration(cluster_endpoint, api_key):
 	"""
-	This function is triggered by the "Collections Configuration" button.
-	It:
-	  1. Checks if connected (else warns).
-	  2. Loads collection list once (and stores in session_state).
-	  3. Displays a selectbox to pick a collection.
-	  4. Provides a "Get Configuration" button to fetch + display config immediately.
+	  1. Checks if connected.
+	  2. Loads collection list (and stores in session_state).
+	  3. Displays a selectbox.
+	  4. Display "Get Configuration" button to fetch + display config.
 	"""
-
 	# Load collections list if not already loaded in session_state
 	if "collections_list" not in st.session_state:
 		collection_list = list_collections(st.session_state.client)
@@ -236,18 +227,17 @@ def action_collections_configuration(cluster_endpoint, api_key):
 
 	# Show a selectbox for the user to choose a collection
 	if st.session_state["collections_list"]:
+		collection_count = get_collectios_count(st.session_state.client)
+		st.markdown(f"###### Total Number of Collections in the list: **{collection_count}**\n")
 		selected_collection = st.selectbox(
 			"Select a Collection",
 			st.session_state["collections_list"],
-			key="selected_collection", # store user choice in session_state
 		)
 	else:
-		# If no collections, just warn
 		st.warning("No collections available to display.")
 		return
 
-	# Button to fetch the chosen collection’s config
-	#    When pressed, triggers a rerun, but we still have the user’s selection in session_state
+# Fetch the chosen collection’s config
 	if st.button("Get Configuration", use_container_width=True):
 		config = fetch_collection_config(cluster_endpoint, api_key, selected_collection)
 		if "error" in config:
@@ -256,11 +246,74 @@ def action_collections_configuration(cluster_endpoint, api_key):
 			processed_config = process_collection_config(config)
 			st.markdown(f"##### **{selected_collection}** Configurations: ")
 
-			# Same logic you had before for displaying processed config
 			for section, details in processed_config.items():
-				st.markdown(f"###### {section}:")
-				if isinstance(details, dict):
-					df = pd.DataFrame(details.items(), columns=["Key", "Value"])
-					st.dataframe(df, use_container_width=True)
+				# Handle Named Vectors Config
+				if section == "Named Vectors Config" and isinstance(details, dict):
+					for vector_name, vector_info in details.items():
+						# Print the Named Vector title
+						st.markdown(f"##### Named Vector: {vector_name}")
+
+						# 1. Display Vectorizer section first if it exists
+						if "Vectorizer" in vector_info and isinstance(vector_info["Vectorizer"], dict):
+							for vec_name, vec_config in vector_info["Vectorizer"].items():
+								st.markdown(f"###### Vectorizer: **{vec_name}**")
+								if isinstance(vec_config, dict) and vec_config:
+									df = pd.DataFrame(list(vec_config.items()), columns=["Key", "Value"])
+									st.dataframe(df, use_container_width=True)
+								else:
+									st.markdown(f"**{vec_config}**")
+
+						# 2. Display Vector Index Type if it exists
+						if "Vector Index Type" in vector_info:
+							sub_details = vector_info["Vector Index Type"]
+							st.markdown(f"###### Vector Index Type: **{sub_details}**")
+
+						# 3. Display Vector Index Config if it exists
+						if "Vector Index Config" in vector_info:
+							sub_details = vector_info["Vector Index Config"]
+							st.markdown(f"###### Vector Index Config:")
+							if isinstance(sub_details, dict) and sub_details:
+								df = pd.DataFrame(list(sub_details.items()), columns=["Key", "Value"])
+								st.dataframe(df, use_container_width=True)
+							else:
+								st.markdown(f"**{sub_details}**")
+
+						# 4. Handle any additional subsections
+						for sub_section, sub_details in vector_info.items():
+							if sub_section not in ["Vectorizer", "Vector Index Type", "Vector Index Config"]:
+								st.markdown(f"###### {sub_section}:")
+								if isinstance(sub_details, dict) and sub_details:
+									df = pd.DataFrame(list(sub_details.items()), columns=["Key", "Value"])
+									st.dataframe(df, use_container_width=True)
+								else:
+									st.markdown(f"**{sub_details}**")
+
+				# Handle Vectorizer Config in NoNamed Vectors Config found
+				elif section == "Vectorizer Config" and isinstance(details, dict):
+					st.markdown(f"####### {section}:")
+					for vec_name, vec_config in details.items():
+						st.markdown(f"###### Vectorizer: **{vec_name}**")
+						if isinstance(vec_config, dict) and vec_config:
+							df = pd.DataFrame(list(vec_config.items()), columns=["Key", "Value"])
+							st.dataframe(df, use_container_width=True)
+						else:
+							st.markdown(f"**{vec_config}**")
+
+						# Retrieve and display module configuration for this vectorizer if available
+						module_conf = config.get("moduleConfig", {}).get(vec_name)
+						if module_conf:
+							st.markdown(f"###### Module Config for {vec_name}:") # Subsection heading
+							if isinstance(module_conf, dict) and module_conf:
+								df_module = pd.DataFrame(list(module_conf.items()), columns=["Key", "Value"])
+								st.dataframe(df_module, use_container_width=True)
+							else:
+								st.markdown(f"**{module_conf}**")
+
+				# Handle other sections if any
 				else:
-					st.markdown(f"**{details}**")
+					st.markdown(f"###### {section}:")
+					if isinstance(details, dict) and details:
+						df = pd.DataFrame(list(details.items()), columns=["Key", "Value"])
+						st.dataframe(df, use_container_width=True)
+					else:
+						st.markdown(f"**{details}**")

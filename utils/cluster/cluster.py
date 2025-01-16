@@ -8,37 +8,53 @@ def get_shards_info(client):
 	return node_info
 
 def process_shards_data(node_info):
-	node_data = []
-	shard_data = []
+    node_data = []
+    shard_data = []
+    collection_shard_counts = []
 
-	for node in node_info:
-		# Node-level data
-		node_data.append({
-			"Node Name": node.name,
-			"Git Hash": node.git_hash,
-			"Version": node.version,
-			"Status": node.status,
-			"Object Count (Stats)": node.stats.object_count,
-			"Shard Count (Stats)": node.stats.shard_count,
-		})
+    for node in node_info:
+        # Node-level data
+        node_data.append({
+            "Node Name": node.name,
+            "Git Hash": node.git_hash,
+            "Version": node.version,
+            "Status": node.status,
+            "Object Count (Stats)": node.stats.object_count,
+            "Shard Count (Stats)": node.stats.shard_count,
+        })
 
-		# Shard-level data for each node
-		for shard in node.shards:
-			shard_data.append({
-				"Node Name": node.name,
-				"Class": shard.collection,
-				"Shard Name": shard.name,
-				"Object Count": shard.object_count,
-				"Index Status": shard.vector_indexing_status,
-				"Vector Queue Length": shard.vector_queue_length,
-				"Compressed": shard.compressed,
-				"Loaded": shard.loaded,
-			})
+        # Dictionary to count shards per collection for this node
+        collection_counts = {}
 
-	return {
-		"node_data": pd.DataFrame(node_data),
-		"shard_data": pd.DataFrame(shard_data),
-	}
+        # Shard-level data for each node
+        for shard in node.shards:
+            shard_data.append({
+                "Node Name": node.name,
+                "Class": shard.collection,
+                "Shard Name": shard.name,
+                "Object Count": shard.object_count,
+                "Index Status": shard.vector_indexing_status,
+                "Vector Queue Length": shard.vector_queue_length,
+                "Compressed": shard.compressed,
+                "Loaded": shard.loaded,
+            })
+
+            # Increment count for this collection on the current node
+            collection_counts[shard.collection] = collection_counts.get(shard.collection, 0) + 1
+
+        # Append shard collection counts for the current node
+        for collection, count in collection_counts.items():
+            collection_shard_counts.append({
+                "Node Name": node.name,
+                "Collection": collection,
+                "Shard Count": count
+            })
+
+    return {
+        "node_data": pd.DataFrame(node_data),
+        "shard_data": pd.DataFrame(shard_data),
+        "collection_shard_data": pd.DataFrame(collection_shard_counts)
+    }
 
 
 def display_shards_table(processed_data):
