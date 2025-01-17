@@ -1,12 +1,12 @@
 import streamlit as st
-from utils.cluster.functions import initialize_client, disconnect_client
+from utils.cluster.functions import initialize_client
 from utils.cluster.functions import action_check_shard_consistency, action_aggregate_collections_tenants, action_collections_configuration, action_metadata, action_nodes_and_shards, action_schema, action_statistics
 from utils.connection.navigation import navigate
+from utils.connection.connection import disconnect_client
 
 # ------------------------ß--------------------------------------------------
 # Streamlit Page Config
 # --------------------------------------------------------------------------
-
 st.set_page_config(
 	page_title="Weaviate Cluster Operations",
 	layout="wide",
@@ -15,59 +15,69 @@ st.set_page_config(
 )
 
 # --------------------------------------------------------------------------
-# Navigation
+# Sidebar
+# --------------------------------------------------------------------------
+def update_side_bar_labels():
+	if not st.session_state.get("client_ready"):
+		st.warning("Please Establish a connection to Weaviate in Cluster Operations page!")
+	else:
+		st.sidebar.info("Connection Status: Ready")
+		st.sidebar.info(f"Current Connected Endpoint: {cluster_endpoint}")
+		st.sidebar.info(f"Client Version: {st.session_state.client_version}")
+		st.sidebar.info(f"Server Version: {st.session_state.server_version}")
+# --------------------------------------------------------------------------
+# Navigation on side bar
 # --------------------------------------------------------------------------
 navigate()
 
-st.sidebar.markdown("---")
-
+# Connect to Weaviate
 st.sidebar.title("Weaviate Connection 🔗")
-
 use_local = st.sidebar.checkbox("Local Cluster", value=False)
 
 if use_local:
-	st.sidebar.info("Local Weaviate at http://localhost:8080")
+	st.sidebar.info("Local Weaviate should be at http://localhost:8080")
+	st.sidebar.warning("Please ensure that you have a local Weaviate instance running on your machine before you connect.")
 	cluster_endpoint = "http://localhost:8080"
-	api_key = ""
+	cluster_api_key = ""
 else:
 	cluster_endpoint = st.sidebar.text_input(
-		"Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)"
+		"Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)", value = st.session_state.get("cluster_endpoint")
 	)
-	api_key = st.sidebar.text_input(
-		"Cluster API Key", placeholder="Enter Cluster Read API Key", type="password"
+	cluster_api_key = st.sidebar.text_input(
+		"Cluster API Key", placeholder="Enter Cluster Read API Key", type="password", value = st.session_state.get("cluster_api_key")
 	)
 
 if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
-
 	if use_local:
-		# Connect to local
-		if initialize_client(cluster_endpoint, api_key, use_local=True):
+		if initialize_client(cluster_endpoint, cluster_api_key, use_local=True):
 			st.sidebar.success("Connected to local successfully!")
 		else:
 			st.sidebar.error("Connection failed!")
 	else:
-		# Cloud
-		if not cluster_endpoint or not api_key:
+		if not cluster_endpoint or not cluster_api_key:
 			st.sidebar.error("Please insert the cluster endpoint and API key!")
 		else:
-			if initialize_client(cluster_endpoint, api_key, use_local=False):
+			if initialize_client(cluster_endpoint, cluster_api_key, use_local=False):
 				st.sidebar.success("Connected successfully!")
 			else:
 				st.sidebar.error("Connection failed!")
 
 if st.sidebar.button("Disconnect", use_container_width=True, type="primary"):
-	disconnect_client()
+	if st.session_state.get("client_ready"):
+		message = disconnect_client(st.session_state.client)
+		st.session_state.client = None
+		st.session_state.client_ready = False
+		st.session_state.server_version = "N/A"
+		st.session_state.client_version = "N/A"
+		st.session_state.cluster_endpoint = ""
+		st.session_state.cluster_api_key = ""
+		st.sidebar.warning(message)
 
-# Connection Info
-if st.session_state.get("client_ready"):
-	st.sidebar.info("Connection Status: Ready")
-	st.sidebar.info(f"Client Version: {st.session_state.client_version}")
-	st.sidebar.info(f"Server Version: {st.session_state.server_version}")
-else:
-	st.sidebar.warning("No active connection")
+update_side_bar_labels()
 
 st.title("Weaviate Cluster Operations 🔍")
 st.markdown("---")
+st.markdown("###### Any function with (APIs) can be run without an active connection, but you still need to provide the endpoint and API key in the sidebar input fields:")
 
 # --------------------------------------------------------------------------
 # Buttons (each sets an active_button or calls a function)
@@ -81,9 +91,9 @@ button_actions = {
 	"nodes": action_nodes_and_shards,
 	"aggregate_collections_tenants": action_aggregate_collections_tenants,
 	"collection_properties": action_schema,
-	"collections_configuration": lambda: action_collections_configuration(cluster_endpoint, api_key),
-	"statistics": lambda: action_statistics(cluster_endpoint, api_key),
-	"metadata": lambda: action_metadata(cluster_endpoint, api_key),
+	"collections_configuration": lambda: action_collections_configuration(cluster_endpoint, cluster_api_key),
+	"statistics": lambda: action_statistics(cluster_endpoint, cluster_api_key),
+	"metadata": lambda: action_metadata(cluster_endpoint, cluster_api_key),
 	"check_shard_consistency": action_check_shard_consistency,
 }
 
@@ -96,7 +106,7 @@ with col2:
 		st.session_state["active_button"] = "collection_properties"
 
 with col3:
-	if st.button("Collections Configuration", use_container_width=True):
+	if st.button("Collections Configuration (APIs)", use_container_width=True):
 		st.session_state["active_button"] = "collections_configuration"
 
 with col4:
@@ -104,15 +114,15 @@ with col4:
 		st.session_state["active_button"] = "nodes"
 
 with col5:
-	if st.button("Statistics", use_container_width=True):
+	if st.button("Raft Statistics (APIs)", use_container_width=True):
 		st.session_state["active_button"] = "statistics"
 
 with col6:
-	if st.button("Metadata",use_container_width=True):
+	if st.button("Metadata (APIs)",use_container_width=True):
 		st.session_state["active_button"] = "metadata"
 
 with col7[0]:
-	if st.button("Check Shard Consistency", use_container_width=True):
+	if st.button("Check Shard Consistency For Repairs", use_container_width=True):
 		st.session_state["active_button"] = "check_shard_consistency"
 
 st.markdown("---")
@@ -126,6 +136,6 @@ if active_button and st.session_state.get("client_ready"):
 	if action_fn:
 		action_fn()
 	else:
-		st.warning("No action mapped for this button. Please report this issue.")
+		st.warning("No action mapped for this button. Please report this issue to Mohamed Shahin in Weaviate Community Slack.")
 elif not st.session_state.get("client_ready"):
 	st.warning("Connect to Weaviate first!")
