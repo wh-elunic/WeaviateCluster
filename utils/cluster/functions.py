@@ -1,13 +1,13 @@
 import pandas as pd
 import streamlit as st
-from connection import connect_to_weaviate, connect_weaviate_local, status
+from utils.connection.connection import connect_to_weaviate, connect_weaviate_local, status
 from utils.cluster.collection import aggregate_collections, get_schema, list_collections, process_collection_config, fetch_collection_config, get_collectios_count
 from utils.cluster.cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, get_metadata, check_shard_consistency
 
 # --------------------------------------------------------------------------
 # Helper Functions
 # --------------------------------------------------------------------------
-def initialize_client(cluster_endpoint, api_key, use_local=False):
+def initialize_client(cluster_endpoint, cluster_api_key, use_local=False):
 	"""
 	Initializes a local or cloud Weaviate client, 
 	stores client in st.session_state, 
@@ -19,16 +19,17 @@ def initialize_client(cluster_endpoint, api_key, use_local=False):
 		st.session_state.client_ready = False
 		st.session_state.server_version = "N/A"
 		st.session_state.client_version = "N/A"
-		st.session_state.cluster_url = ""
+		st.session_state.cluster_endpoint = ""
+		st.session_state.cluster_api_key = ""
 
 	try:
 		if use_local:
+			st.session_state.cluster_endpoint = "http://localhost:8080"
 			client = connect_weaviate_local()
-			st.session_state.cluster_url = "http://localhost:8080"
 		else:
-			client = connect_to_weaviate(cluster_endpoint, api_key)
-			st.session_state.cluster_url = cluster_endpoint
-			st.session_state.cluster_api_key = api_key 
+			client = connect_to_weaviate(cluster_endpoint, cluster_api_key)
+			st.session_state.cluster_endpoint = cluster_endpoint
+			st.session_state.cluster_api_key = cluster_api_key 
 
 		if client:
 			ready, server_version, client_version = status(client)
@@ -45,23 +46,6 @@ def initialize_client(cluster_endpoint, api_key, use_local=False):
 		return False
 
 	return False
-
-def disconnect_client():
-	if st.session_state.get("client_ready"):
-		client = st.session_state.client
-		if client:
-			try:
-				client.close()
-			except Exception as e:
-				st.sidebar.error(f"Error while disconnecting: {e}")
-
-	# Reset
-	st.session_state.client = None
-	st.session_state.client_ready = False
-	st.session_state.server_version = "N/A"
-	st.session_state.client_version = "N/A"
-	st.session_state.cluster_url = ""
-	st.sidebar.warning("Reset Connection!")
 
 # --------------------------------------------------------------------------
 # Action Handlers (one function per button)
@@ -142,7 +126,7 @@ def action_schema():
 			with st.expander(f"Collection: {collection_name}", expanded=False):
 				st.markdown(f"**Name:** {collection_details.name}")
 				st.markdown(f"**Description:** {collection_details.description or 'None'}")
-				st.markdown(f"**Vectorizer:** {collection_details.vectorizer or 'None'}")
+				st.markdown(f"**Vectorizer:** {collection_details.vectorizer or 'If no vectorizer then could be NamedVectors (check collections config) or its BYOV'}")
 				st.markdown("#### Properties:")
 				properties_data = []
 				for prop in collection_details.properties:

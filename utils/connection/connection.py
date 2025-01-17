@@ -11,13 +11,13 @@ def connect_weaviate_local():
 	)
 
 # Connect to Weaviate Cloud
-def connect_to_weaviate(cluster_endpoint, api_key):
+def connect_to_weaviate(cluster_endpoint, cluster_api_key):
 	cluster_endpoint = cluster_endpoint
-	api_key = api_key
+	cluster_api_key = cluster_api_key
 
 	client = weaviate.connect_to_wcs(
 		cluster_url=cluster_endpoint,
-		auth_credentials=weaviate.auth.AuthApiKey(api_key),
+		auth_credentials=weaviate.auth.AuthApiKey(cluster_api_key),
 		skip_init_checks=True,
 		additional_config=AdditionalConfig(
 			timeout=Timeout(init=60, query=300, insert=300)
@@ -35,3 +35,17 @@ def status(client):
 	except Exception as e:
 		print(f"Error: {e}")
 		return False, "N/A", "N/A"
+
+# Disconnect client
+def disconnect_client(client):
+	message = None
+	if client:
+		try:
+			client.close()
+			message = "Disconnected successfully!"
+		except Exception as e:
+			message = f"Error while disconnecting: {e}"
+			return message
+	else:
+		message = "No connection to disconnect!"
+	return message

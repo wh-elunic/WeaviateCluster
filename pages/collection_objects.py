@@ -1,15 +1,16 @@
 import streamlit as st
 from utils.objects.objects import get_object, display_object_as_table, find_objects_on_nodes
 from utils.connection.navigation import navigate
+from streamlit_app import update_side_bar_labels
 
 def main():
 
+    st.title("Object Operations 📦")
+
     navigate()
 
-    if not st.session_state.get("client_ready"):
-        st.warning("Please connect first to Weaviate in Cluster Operations Page!")
+    update_side_bar_labels()
 
-    st.title("Objects")
 
     collection_name = st.text_input("Collection Name")
     object_uuid = st.text_input("Object UUID")
@@ -22,7 +23,7 @@ def main():
     with col1:
         fetch_object_clicked = st.button("Fetch The Object",use_container_width=True)
     with col2:
-        check_node_clicked = st.button("Check The Object on Nodes",use_container_width=True)
+        check_node_clicked = st.button("Check the Object on the Nodes (APIs)",use_container_width=True)
 
     # "Fetch Object"
     if fetch_object_clicked:
@@ -54,10 +55,10 @@ def main():
         try:
             # Fetch node data and display table
             api_key = st.session_state.cluster_api_key
-            cluster_endpoint = st.session_state.cluster_url
+            cluster_endpoint = st.session_state.cluster_endpoint
             node_df = find_objects_on_nodes(cluster_endpoint, api_key, collection_name, object_uuid)
             st.session_state.button_result = st.dataframe(node_df, use_container_width=True)
-            st.text("✔ Found | ✖ Not Found | N/A The node does not exist")
+            st.text("✔ Found | ✖ Not Found | N/A The node does not exist (Hardcoded 11 nodes as maximu for now)")
         except Exception as e:
             st.session_state.button_result = st.error(f"An error occurred while checking the object on nodes: {e}")
     
