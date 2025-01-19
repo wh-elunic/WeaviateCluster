@@ -1,8 +1,17 @@
 # Get tenant States
 def get_tenant_details(client, collection):
-	col = client.collections.get(collection)
-	tenants = col.tenants.get()
-	return tenants
+    col = client.collections.get(collection)
+    tenants = col.tenants.get()
+    return tenants
+
+def aggregate_tenant_states(tenants):
+    tenant_states = {}
+    for tenant_id, tenant in tenants.items():
+        state = tenant.activityStatusInternal.name
+        if state not in tenant_states:
+            tenant_states[state] = 0
+        tenant_states[state] += 1
+    return tenant_states
 
 # Get multi-tenancy collections only
 def get_multitenancy_collections(schema):

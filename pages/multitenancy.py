@@ -2,8 +2,7 @@ import streamlit as st
 import pandas as pd
 from utils.connection.navigation import navigate
 from utils.sidebar.helper import update_side_bar_labels
-from utils.multitenancy.tenantdetails import get_tenant_details
-from utils.multitenancy.tenantdetails import get_multitenancy_collections
+from utils.multitenancy.tenantdetails import get_tenant_details, get_multitenancy_collections, aggregate_tenant_states
 from utils.cluster.cluster import get_schema
     
 def display_multitenancy(cluster_url, api_key):
@@ -54,6 +53,7 @@ def tenant_details():
     if st.button("Get Tenant Details"):
         selected_collection_name = st.session_state.get("selected_collection_name")
         tenants = get_tenant_details(st.session_state.client, selected_collection_name)
+        aggregated_states = aggregate_tenant_states(tenants)
         tenant_data = []
         for tenant_id, tenant in tenants.items():
             tenant_data.append({
@@ -62,7 +62,7 @@ def tenant_details():
                 'Activity Status Internal': tenant.activityStatusInternal.name,
                 'Activity Status': tenant.activityStatus.name
             })
-
+        st.dataframe(pd.DataFrame(aggregated_states.items(), columns=['Activity Status', 'Count']), use_container_width=True)
         df = pd.DataFrame(tenant_data)
         st.dataframe(df, use_container_width=True)
 

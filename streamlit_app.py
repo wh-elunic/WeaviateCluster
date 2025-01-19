@@ -31,10 +31,10 @@ if use_local:
 	cluster_api_key = ""
 else:
 	cluster_endpoint = st.sidebar.text_input(
-		"Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)", value = st.session_state.get("cluster_endpoint")
+		"Cloud Cluster Endpoint", placeholder="Enter Cluster Endpoint (URL)", value = st.session_state.get("cluster_endpoint")
 	)
 	cluster_api_key = st.sidebar.text_input(
-		"Cluster API Key", placeholder="Enter Cluster Read API Key", type="password", value = st.session_state.get("cluster_api_key")
+		"Cloud Cluster API Key", placeholder="Enter Cluster Read API Key", type="password", value = st.session_state.get("cluster_api_key")
 	)
 
 if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
