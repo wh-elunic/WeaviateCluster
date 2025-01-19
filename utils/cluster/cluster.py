@@ -91,6 +91,18 @@ def check_shard_consistency(node_info):
 
     return None
 
+# Get cluster Schema
+def get_schema(cluster_url, api_key):
+	try:
+		url = f"{cluster_url}/v1/schema"
+		headers = {"Authorization": f"Bearer {api_key}"}
+		response = requests.get(url, headers=headers)
+		response.raise_for_status() 
+
+		return response.json() 
+	except requests.exceptions.RequestException as e:
+		return {"error": f"Failed to fetch cluster statistics: {e}"}
+
 # Get cluster statistics
 def fetch_cluster_statistics(cluster_url, api_key):
 	try:
