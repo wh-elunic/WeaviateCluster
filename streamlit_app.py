@@ -3,6 +3,7 @@ from utils.cluster.functions import initialize_client
 from utils.cluster.functions import action_check_shard_consistency, action_aggregate_collections_tenants, action_collections_configuration, action_metadata, action_nodes_and_shards, action_schema, action_statistics
 from utils.connection.navigation import navigate
 from utils.connection.connection import disconnect_client
+from utils.sidebar.helper import update_side_bar_labels
 
 # ------------------------ß--------------------------------------------------
 # Streamlit Page Config
@@ -13,19 +14,6 @@ st.set_page_config(
 	initial_sidebar_state="expanded",
 	page_icon="🔍",
 )
-
-# --------------------------------------------------------------------------
-# Sidebar
-# --------------------------------------------------------------------------
-def update_side_bar_labels():
-	if not st.session_state.get("client_ready"):
-		st.warning("Please Establish a connection to Weaviate in Cluster Operations page!")
-	else:
-		st.sidebar.info("Connection Status: Ready")
-		st.sidebar.info(f"Current Connected Endpoint: {st.session_state.cluster_endpoint}")
-		st.sidebar.info(f"Client Version: {st.session_state.client_version}")
-		st.sidebar.info(f"Server Version: {st.session_state.server_version}")
-		print("cluster_endpoint in session state:", st.session_state.get('cluster_endpoint'))
 
 # --------------------------------------------------------------------------
 # Navigation on side bar
@@ -67,12 +55,8 @@ if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
 if st.sidebar.button("Disconnect", use_container_width=True, type="primary"):
 	if st.session_state.get("client_ready"):
 		message = disconnect_client(st.session_state.client)
-		st.session_state.client = None
-		st.session_state.client_ready = False
-		st.session_state.server_version = "N/A"
-		st.session_state.client_version = "N/A"
-		st.session_state.cluster_endpoint = ""
-		st.session_state.cluster_api_key = ""
+		st.session_state.clear()
+		st.rerun()
 		st.sidebar.warning(message)
 
 update_side_bar_labels()

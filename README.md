@@ -14,9 +14,12 @@ Interact with and manage Weaviate Cluster operations. This app provides tools to
 	•	Metadata: View cluster metadata & modules.
 	•	Consistency: Analyze Shards for incosistency.
 	•	Object Operations:
-		•	Fetch an object data.
+		•	Fetch an object data in Collection.
 		•	Analyze consistency of an object across nodes (Hard coded 11 nodes for now as max)
-
+		•	Fetch an object data in Tenant.
+	•	Multi Tenancy Operations
+		•	Visualize Tenants and states
+	
 ## How to run it on your own machine
 
 ### Prerequisites
