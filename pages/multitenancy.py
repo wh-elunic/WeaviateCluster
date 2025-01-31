@@ -68,7 +68,7 @@ def tenant_details():
 
 def main():
 
-    st.title("Multi Tenancy Operations 🏢")
+    st.title("Multi Tenancy 🏢")
 
     navigate()
 
