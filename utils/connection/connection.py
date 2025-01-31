@@ -1,5 +1,5 @@
 import weaviate
-from weaviate.config import AdditionalConfig, Timeout, ConnectionConfig
+from weaviate.config import AdditionalConfig, Timeout
 
 # Connect to Weaviate Locally
 def connect_weaviate_local():
