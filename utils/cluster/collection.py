@@ -30,10 +30,15 @@ def aggregate_collections(client):
 						total_tenants_count += tenant_count
 
 						for tenant_name, tenant in tenants.items():
-							tenant_collection = collection.with_tenant(tenant_name)
-							response = tenant_collection.aggregate.over_all(total_count=True).total_count
-							tenant_row = {"Collection": "", "Count": "", "Tenant": tenant_name, "Tenant Count": response}
-							result_data.append(tenant_row)
+							try:
+								tenant_collection = collection.with_tenant(tenant_name)
+								response = tenant_collection.aggregate.over_all(total_count=True).total_count
+								tenant_row = {"Collection": "", "Count": "", "Tenant": tenant_name, "Tenant Count": response}
+								result_data.append(tenant_row)
+							except Exception as e_inner:
+								# Log the error or append an error row for that tenant
+								tenant_row = {"Collection": "", "Count": "", "Tenant": tenant_name, "Tenant Count": f"ERROR: {e_inner}"}
+								result_data.append(tenant_row)
 					else:
 						response = collection.aggregate.over_all(total_count=True).total_count
 						collection_row["Count"] = response

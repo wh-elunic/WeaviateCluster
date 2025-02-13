@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.objects.objects import get_object_in_collection, display_object_as_table, find_object_in_collection_on_nodes, get_object_in_tenant, find_object_in_tenant_on_nodes
-from utils.connection.navigation import navigate
+from utils.sidebar.navigation import navigate
 from utils.sidebar.helper import update_side_bar_labels
 
 def get_object_details():
@@ -70,7 +70,7 @@ def main():
         update_side_bar_labels()
         get_object_details()
     else:
-        st.warning("Please Establish a connection to Weaviate in Cluster Operations page!")
+        st.warning("Please Establish a connection to Weaviate in Cluster page!")
     
 # Required so Streamlit runs `main()` when this file is opened as a page
 if __name__ == "__main__":

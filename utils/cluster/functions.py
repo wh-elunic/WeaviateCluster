@@ -1,51 +1,7 @@
 import pandas as pd
 import streamlit as st
-from utils.connection.connection import connect_to_weaviate, connect_weaviate_local, status
 from utils.cluster.collection import aggregate_collections, get_schema, list_collections, process_collection_config, fetch_collection_config, get_collectios_count
 from utils.cluster.cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, get_metadata, check_shard_consistency
-
-# --------------------------------------------------------------------------
-# Helper Functions
-# --------------------------------------------------------------------------
-def initialize_client(cluster_endpoint, cluster_api_key, use_local=False):
-	"""
-	Initializes a local or cloud Weaviate client, 
-	stores client in st.session_state, 
-	and returns True if connected/ready.
-	"""
-
-	if "client" not in st.session_state:
-		st.session_state.client = None
-		st.session_state.client_ready = False
-		st.session_state.server_version = "N/A"
-		st.session_state.client_version = "N/A"
-		st.session_state.cluster_endpoint = ""
-		st.session_state.cluster_api_key = ""
-
-	try:
-		if use_local:
-			st.session_state.cluster_endpoint = "http://localhost:8080"
-			client = connect_weaviate_local()
-		else:
-			client = connect_to_weaviate(cluster_endpoint, cluster_api_key)
-			st.session_state.cluster_endpoint = cluster_endpoint
-			st.session_state.cluster_api_key = cluster_api_key 
-
-		if client:
-			ready, server_version, client_version = status(client)
-			st.session_state.client = client
-			st.session_state.client_ready = ready
-			st.session_state.server_version = server_version
-			st.session_state.client_version = client_version
-			return True
-
-	except Exception as e:
-		st.sidebar.error(f"Connection Error: {e}")
-		st.session_state.client = None
-		st.session_state.client_ready = False
-		return False
-
-	return False
 
 # --------------------------------------------------------------------------
 # Action Handlers (one function per button)
@@ -60,7 +16,7 @@ def action_nodes_and_shards():
 
 		st.markdown("#### Node Details")
 		if not node_table.empty:
-			st.dataframe(node_table, use_container_width=True)
+			st.dataframe(node_table.astype(str), use_container_width=True)
 		else:
 			st.warning("No node details available.")
 
@@ -73,7 +29,7 @@ def action_nodes_and_shards():
 
 		st.markdown("#### Shard Details")
 		if not shard_table.empty:
-			st.dataframe(shard_table, use_container_width=True)
+			st.dataframe(shard_table.astype(str), use_container_width=True)
 		else:
 			st.warning("No shard details available.")
 	else:
@@ -90,7 +46,7 @@ def action_check_shard_consistency():
 		df_inconsistent_shards = check_shard_consistency(node_info)
 		if df_inconsistent_shards is not None:
 			st.markdown("#### Inconsistent Shards Found")
-			st.dataframe(df_inconsistent_shards, use_container_width=True)
+			st.dataframe(df_inconsistent_shards.astype(str), use_container_width=True)
 		else:
 			st.success("All shards are consistent.")
 	else:
@@ -112,7 +68,7 @@ def action_aggregate_collections_tenants():
 
 	result_df = result["result_df"]
 	if not result_df.empty:
-		st.table(result_df)
+		st.dataframe(result_df.astype(str), use_container_width=True)
 	else:
 		st.warning("No data to display.")
 
@@ -167,7 +123,7 @@ def action_statistics(cluster_endpoint, api_key):
 
 		flattened_data = processed_stats["data"]
 		df = pd.DataFrame(flattened_data)
-		st.dataframe(df, use_container_width=True)
+		st.dataframe(df.astype(str), use_container_width=True)
 
 	except Exception as e:
 		st.error(f"Error fetching cluster statistics: {e}")
@@ -181,18 +137,18 @@ def action_metadata(cluster_endpoint, api_key):
 	else:
 		general_metadata_df = metadata_result["general_metadata_df"]
 		st.markdown("###### General Metadata Information")
-		st.dataframe(general_metadata_df, use_container_width=True)
+		st.dataframe(general_metadata_df.astype(str), use_container_width=True)
 
 		modules_df = metadata_result["modules_df"]
 		if not modules_df.empty:
 			st.markdown("###### Module Details")
-			st.dataframe(modules_df, use_container_width=True)
+			st.dataframe(modules_df.astype(str), use_container_width=True)
 
 		nested_module_data = metadata_result["nested_module_data"]
 		if nested_module_data:
 			for module_name, nested_df in nested_module_data.items():
 				st.markdown(f"###### Details for Module: **{module_name}**")
-				st.dataframe(nested_df, use_container_width=True)
+				st.dataframe(nested_df.astype(str), use_container_width=True)
 
 def action_collections_configuration(cluster_endpoint, api_key):
 	"""
@@ -243,7 +199,7 @@ def action_collections_configuration(cluster_endpoint, api_key):
 								st.markdown(f"###### Vectorizer: **{vec_name}**")
 								if isinstance(vec_config, dict) and vec_config:
 									df = pd.DataFrame(list(vec_config.items()), columns=["Key", "Value"])
-									st.dataframe(df, use_container_width=True)
+									st.dataframe(df.astype(str), use_container_width=True)
 								else:
 									st.markdown(f"**{vec_config}**")
 
@@ -258,7 +214,7 @@ def action_collections_configuration(cluster_endpoint, api_key):
 							st.markdown(f"###### Vector Index Config:")
 							if isinstance(sub_details, dict) and sub_details:
 								df = pd.DataFrame(list(sub_details.items()), columns=["Key", "Value"])
-								st.dataframe(df, use_container_width=True)
+								st.dataframe(df.astype(str), use_container_width=True)
 							else:
 								st.markdown(f"**{sub_details}**")
 
@@ -268,7 +224,7 @@ def action_collections_configuration(cluster_endpoint, api_key):
 								st.markdown(f"###### {sub_section}:")
 								if isinstance(sub_details, dict) and sub_details:
 									df = pd.DataFrame(list(sub_details.items()), columns=["Key", "Value"])
-									st.dataframe(df, use_container_width=True)
+									st.dataframe(df.astype(str), use_container_width=True)
 								else:
 									st.markdown(f"**{sub_details}**")
 
@@ -279,7 +235,7 @@ def action_collections_configuration(cluster_endpoint, api_key):
 						st.markdown(f"###### Vectorizer: **{vec_name}**")
 						if isinstance(vec_config, dict) and vec_config:
 							df = pd.DataFrame(list(vec_config.items()), columns=["Key", "Value"])
-							st.dataframe(df, use_container_width=True)
+							st.dataframe(df.astype(str), use_container_width=True)
 						else:
 							st.markdown(f"**{vec_config}**")
 
@@ -289,7 +245,7 @@ def action_collections_configuration(cluster_endpoint, api_key):
 							st.markdown(f"###### Module Config for {vec_name}:") # Subsection heading
 							if isinstance(module_conf, dict) and module_conf:
 								df_module = pd.DataFrame(list(module_conf.items()), columns=["Key", "Value"])
-								st.dataframe(df_module, use_container_width=True)
+								st.dataframe(df_module.astype(str), use_container_width=True)
 							else:
 								st.markdown(f"**{module_conf}**")
 
@@ -298,6 +254,6 @@ def action_collections_configuration(cluster_endpoint, api_key):
 					st.markdown(f"###### {section}:")
 					if isinstance(details, dict) and details:
 						df = pd.DataFrame(list(details.items()), columns=["Key", "Value"])
-						st.dataframe(df, use_container_width=True)
+						st.dataframe(df.astype(str), use_container_width=True)
 					else:
 						st.markdown(f"**{details}**")

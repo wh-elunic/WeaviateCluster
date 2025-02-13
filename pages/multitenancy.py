@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utils.connection.navigation import navigate
+from utils.sidebar.navigation import navigate
 from utils.sidebar.helper import update_side_bar_labels
 from utils.multitenancy.tenantdetails import get_tenant_details, get_multitenancy_collections, aggregate_tenant_states
 from utils.cluster.cluster import get_schema
@@ -45,7 +45,7 @@ def display_multitenancy(cluster_url, api_key):
         if selected_collection:
             multi_tenancy_config = selected_collection['multiTenancyConfig']
             multi_tenancy_df = pd.DataFrame([multi_tenancy_config])
-            st.dataframe(multi_tenancy_df, use_container_width=True)
+            st.dataframe(multi_tenancy_df.astype(str), use_container_width=True)
         else:
             st.error("Failed to find the selected collection in the available collections.")
 
@@ -64,7 +64,7 @@ def tenant_details():
             })
         st.dataframe(pd.DataFrame(aggregated_states.items(), columns=['Activity Status', 'Count']), use_container_width=True)
         df = pd.DataFrame(tenant_data)
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df.astype(str), use_container_width=True)
 
 def main():
 
@@ -77,7 +77,7 @@ def main():
         display_multitenancy(st.session_state.cluster_endpoint, st.session_state.cluster_api_key)
         tenant_details()
     else:
-        st.warning("Please Establish a connection to Weaviate in Cluster Operations page!")
+        st.warning("Please Establish a connection to Weaviate in Cluster page!")
 
 # Required so Streamlit runs `main()` when this file is opened as a page
 if __name__ == "__main__":

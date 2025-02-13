@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.connection.navigation import navigate
+from utils.sidebar.navigation import navigate
 from utils.sidebar.helper import update_side_bar_labels
 from utils.collections.objects import list_all_collections, get_tenant_names, fetch_collection_data
 
@@ -42,7 +42,7 @@ def get_all_objects_of_collections_and_tenants():
 		else:
 			df = fetch_collection_data(client, selected_collection, selected_tenant)
 			if not df.empty:
-				st.dataframe(df, use_container_width=True)
+				st.dataframe(df.astype(str), use_container_width=True)
 			else:
 				st.warning("No data found")
 
@@ -54,7 +54,7 @@ def main():
 		update_side_bar_labels()
 		get_all_objects_of_collections_and_tenants()
 	else:
-		st.warning("Please Establish a connection to Weaviate in Cluster Operations page!")
+		st.warning("Please Establish a connection to Weaviate in Cluster page!")
 
 if __name__ == "__main__":
 	main()
