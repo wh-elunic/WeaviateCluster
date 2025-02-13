@@ -97,8 +97,7 @@ def get_schema(cluster_url, api_key):
 		url = f"{cluster_url}/v1/schema"
 		headers = {"Authorization": f"Bearer {api_key}"}
 		response = requests.get(url, headers=headers)
-		response.raise_for_status() 
-
+		response.raise_for_status()
 		return response.json() 
 	except requests.exceptions.RequestException as e:
 		return {"error": f"Failed to fetch cluster statistics: {e}"}

@@ -1,8 +1,8 @@
 import streamlit as st
-from utils.cluster.functions import initialize_client
+from utils.connection.weaviate_client import initialize_client
 from utils.cluster.functions import action_check_shard_consistency, action_aggregate_collections_tenants, action_collections_configuration, action_metadata, action_nodes_and_shards, action_schema, action_statistics
-from utils.connection.navigation import navigate
-from utils.connection.connection import disconnect_client
+from utils.sidebar.navigation import navigate
+from utils.connection.weaviate_connection import close_weaviate_client
 from utils.sidebar.helper import update_side_bar_labels
 
 # ------------------------ß--------------------------------------------------
@@ -54,14 +54,14 @@ if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
 
 if st.sidebar.button("Disconnect", use_container_width=True, type="primary"):
 	if st.session_state.get("client_ready"):
-		message = disconnect_client(st.session_state.client)
+		message = close_weaviate_client()
 		st.session_state.clear()
 		st.rerun()
 		st.sidebar.warning(message)
 
 update_side_bar_labels()
 
-st.title("Weaviate Cluster Operations 🔍")
+st.title("Weaviate Cluster 🔍")
 st.markdown("---")
 st.markdown("###### Any function with (APIs) can be run without an active connection, but you still need to provide the endpoint and API key in the sidebar input fields:")
 
