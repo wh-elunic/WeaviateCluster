@@ -44,9 +44,9 @@ def action_check_shard_consistency():
 	node_info = get_shards_info(st.session_state.client)
 	if node_info:
 		df_inconsistent_shards = check_shard_consistency(node_info)
-		inconsistent_collections = list(df_inconsistent_shards["Collection"].unique())
-		total = len(inconsistent_collections)
 		if df_inconsistent_shards is not None:
+			inconsistent_collections = list(df_inconsistent_shards["Collection"].unique())
+			total = len(inconsistent_collections)
 			st.markdown(f"#### Inconsistent Shards Table with {total} Inconsistent collections")
 			st.dataframe(df_inconsistent_shards.astype(str), use_container_width=True)
 		else:
@@ -345,7 +345,6 @@ def action_read_repairs(cluster_endpoint, api_key):
             offset += limit
             update_key = f"log_fetch_{offset}"
             log_container.text_area("Read Repair Logs", st.session_state["repair_logs"], height=300, key=update_key)
-            time.sleep(0.1)
 
         st.session_state["repair_logs"] += f"Fetched {len(all_uuids)} objects in '{selected_collection}'.\n"
         log_container.text_area("Read Repair Logs", st.session_state["repair_logs"], height=300, key="log_fetch_final")

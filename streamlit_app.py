@@ -61,6 +61,10 @@ if st.sidebar.button("Disconnect", use_container_width=True, type="primary"):
 
 update_side_bar_labels()
 
+# --------------------------------------------------------------------------
+# Main Page Content (Cluster Operations)
+# --------------------------------------------------------------------------
+
 st.title("Weaviate Cluster 🔍")
 st.markdown("---")
 st.markdown("###### Any function with (APIs) can be run without an active connection, but you still need to provide the endpoint and API key in the sidebar input fields:")

@@ -40,6 +40,7 @@ def fetch_collection_data(client, collection_name, tenant_name=None):
 		collection_data = []
 		for item in collection.iterator(include_vector=True):
 			row = item.properties.copy()
+			row['uuid'] = item.uuid
 			row['vector'] = item.vector
 			if tenant_name:
 				row['tenant'] = tenant_name
@@ -50,7 +51,7 @@ def fetch_collection_data(client, collection_name, tenant_name=None):
 			df['collection'] = f"{collection_name} (Tenant: {tenant_name})" if tenant_name else collection_name
 			return df
 		else:
-			print(f"No data found in collection '{collection_name}'{' for tenant ' + tenant_name if tenant_name else ''}.")
+			print(f"No data found (or Tenant is inactive) in collection '{collection_name}'{' for tenant ' + tenant_name if tenant_name else ''}.")
 			return pd.DataFrame()
 	except Exception as e:
 		print(f"Error fetching data from collection '{collection_name}'{' for tenant ' + tenant_name if tenant_name else ''}: {e}")
