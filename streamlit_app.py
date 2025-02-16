@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.connection.weaviate_client import initialize_client
-from utils.cluster.functions import action_check_shard_consistency, action_aggregate_collections_tenants, action_collections_configuration, action_metadata, action_nodes_and_shards, action_schema, action_statistics
+from utils.cluster.cluster_operations_handlers import action_check_shard_consistency, action_aggregate_collections_tenants, action_collections_configuration, action_metadata, action_nodes_and_shards, action_schema, action_statistics, action_read_repairs
 from utils.sidebar.navigation import navigate
 from utils.connection.weaviate_connection import close_weaviate_client
 from utils.sidebar.helper import update_side_bar_labels
@@ -66,11 +66,11 @@ st.markdown("---")
 st.markdown("###### Any function with (APIs) can be run without an active connection, but you still need to provide the endpoint and API key in the sidebar input fields:")
 
 # --------------------------------------------------------------------------
-# Buttons (each sets an active_button or calls a function)
+# Buttons (calls a function)
 # --------------------------------------------------------------------------
 col1, col2, col3 = st.columns([1, 1, 1])
 col4, col5, col6 = st.columns([1, 1, 1])
-col7 = st.columns([1])
+col7, col8 = st.columns([1,1])
 
 # Dictionary: button name => action function
 button_actions = {
@@ -81,6 +81,7 @@ button_actions = {
 	"statistics": lambda: action_statistics(cluster_endpoint, cluster_api_key),
 	"metadata": lambda: action_metadata(cluster_endpoint, cluster_api_key),
 	"check_shard_consistency": action_check_shard_consistency,
+	"read_repairs": lambda: action_read_repairs(cluster_endpoint, cluster_api_key),
 }
 
 with col1:
@@ -107,9 +108,13 @@ with col6:
 	if st.button("Metadata (APIs)",use_container_width=True):
 		st.session_state["active_button"] = "metadata"
 
-with col7[0]:
+with col7:
 	if st.button("Check Shard Consistency For Repairs", use_container_width=True):
 		st.session_state["active_button"] = "check_shard_consistency"
+
+with col8:
+	if st.button("Trigger Read Repair (APIs)", use_container_width=True):
+		st.session_state["active_button"] = "read_repairs"
 
 st.markdown("---")
 

@@ -3,7 +3,7 @@ import pandas as pd
 from utils.sidebar.navigation import navigate
 from utils.sidebar.helper import update_side_bar_labels
 from utils.multitenancy.tenantdetails import get_tenant_details, get_multitenancy_collections, aggregate_tenant_states
-from utils.cluster.cluster import get_schema
+from utils.cluster.cluster_operations import get_schema
     
 def display_multitenancy(cluster_url, api_key):
 

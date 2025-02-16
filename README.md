@@ -15,6 +15,7 @@ Interact with and manage Weaviate Cluster operations. This app provides tools to
 - **Statistics**: Analyze cluster synchronization and node statistics.
 - **Metadata**: View cluster metadata & modules.
 - **Consistency**: Analyze shards for inconsistency.
+- **Read Repair**: Force repair collection objects incosistency across the nodes.
 - **Object Operations**:
 	- Fetch object data in collections.
 	- Analyze consistency of an object across nodes (currently hardcoded for a max of 11 nodes).

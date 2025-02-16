@@ -1,11 +1,15 @@
 import pandas as pd
 import streamlit as st
+import requests
+import time
 from utils.cluster.collection import aggregate_collections, get_schema, list_collections, process_collection_config, fetch_collection_config, get_collectios_count
-from utils.cluster.cluster import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, get_metadata, check_shard_consistency
+from utils.cluster.cluster_operations import fetch_cluster_statistics, process_statistics, get_shards_info, process_shards_data, get_metadata, check_shard_consistency, read_repairs
 
 # --------------------------------------------------------------------------
-# Action Handlers (one function per button)
+# Action Handlers (one function per button) for Cluster Operations
 # --------------------------------------------------------------------------
+
+# Fetch node info and display node and shard details.
 def action_nodes_and_shards():
 	node_info = get_shards_info(st.session_state.client)
 	if node_info:
@@ -35,23 +39,22 @@ def action_nodes_and_shards():
 	else:
 		st.error("Failed to retrieve node and shard details.")
 
+# Check for shard consistency.
 def action_check_shard_consistency():
-	"""
-	Fetch node info and check for shard consistency.
-	Display results in a table if inconsistencies are found.
-	"""
 	node_info = get_shards_info(st.session_state.client)
 	if node_info:
-		# Call the function from cluster.py
 		df_inconsistent_shards = check_shard_consistency(node_info)
+		inconsistent_collections = list(df_inconsistent_shards["Collection"].unique())
+		total = len(inconsistent_collections)
 		if df_inconsistent_shards is not None:
-			st.markdown("#### Inconsistent Shards Found")
+			st.markdown(f"#### Inconsistent Shards Table with {total} Inconsistent collections")
 			st.dataframe(df_inconsistent_shards.astype(str), use_container_width=True)
 		else:
 			st.success("All shards are consistent.")
 	else:
 		st.error("Failed to retrieve node and shard details.")
 
+# Aggregate collections and tenants.
 def action_aggregate_collections_tenants():
 	st.markdown("###### Collections & Tenants aggregation can take a while to complete due to the large amount of data and the loop through all collections & Tenants.")
 	result = aggregate_collections(st.session_state.client)
@@ -72,6 +75,7 @@ def action_aggregate_collections_tenants():
 	else:
 		st.warning("No data to display.")
 
+# Fetch and display collection schema.
 def action_schema():
 	schema = get_schema(st.session_state.client)
 	if "error" in schema:
@@ -102,6 +106,7 @@ def action_schema():
 	else:
 		st.warning("No schema details available.")
 
+# Fetch and display cluster statistics (RAFT).
 def action_statistics(cluster_endpoint, api_key):
 	st.markdown("#### Cluster Statistics Details")
 	try:
@@ -128,6 +133,7 @@ def action_statistics(cluster_endpoint, api_key):
 	except Exception as e:
 		st.error(f"Error fetching cluster statistics: {e}")
 
+# Fetch and display cluster metadata.
 def action_metadata(cluster_endpoint, api_key):
 	st.markdown("#### Cluster Metadata Details")
 	metadata_result = get_metadata(cluster_endpoint, api_key)
@@ -149,7 +155,8 @@ def action_metadata(cluster_endpoint, api_key):
 			for module_name, nested_df in nested_module_data.items():
 				st.markdown(f"###### Details for Module: **{module_name}**")
 				st.dataframe(nested_df.astype(str), use_container_width=True)
-
+				
+# Fetch and display collection configurations.
 def action_collections_configuration(cluster_endpoint, api_key):
 	"""
 	  1. Checks if connected.
@@ -257,3 +264,114 @@ def action_collections_configuration(cluster_endpoint, api_key):
 						st.dataframe(df.astype(str), use_container_width=True)
 					else:
 						st.markdown(f"**{details}**")
+
+# Trigger read repairs for inconsistent collections.
+def action_read_repairs(cluster_endpoint, api_key):
+    # Step 1: Run shard consistency check and extract collection names of it.
+    node_info = get_shards_info(st.session_state.client)
+    if not node_info:
+        st.error("Failed to retrieve node and shard details.")
+        return
+
+    df_inconsistent = check_shard_consistency(node_info)
+    if df_inconsistent is None:
+        st.success("All shards are consistent. No read repairs needed.")
+        return
+
+    inconsistent_collections = list(df_inconsistent["Collection"].unique())
+    total = len(inconsistent_collections)
+
+    if "repair_collections" not in st.session_state:
+        st.session_state.repair_collections = inconsistent_collections
+
+    st.markdown(f"### Inconsistent {total} collections")
+    st.dataframe(df_inconsistent.astype(str), use_container_width=True)
+
+    # Step 2: Use a form to hold the radio button and a submit button.
+    with st.form(key="repair_form"):
+        selected_collection = st.radio(
+            "Select a collection to repair",
+            st.session_state.repair_collections,
+            key="selected_collection"
+        )
+        submit = st.form_submit_button(label="Start Read Repairs")
+
+	# Refresh the collections list if a repair is completed.
+    if st.button("Refresh Collections", use_container_width=True):
+        st.session_state.repair_collections = inconsistent_collections
+
+    # Step 3: trigger read repairs.
+    if submit:
+        # Retrieve the persisted selection from session state.
+        selected_collection = st.session_state.get("selected_collection")
+
+        if selected_collection not in st.session_state.repair_collections:
+            st.error("Selected collection no longer exists in repair list")
+            return
+
+        st.markdown(f"**Starting read repairs for collection** (1 iteration only for now): `{selected_collection}`")
+
+        # Initialize log storage in session state.
+        st.session_state["repair_logs"] = ""
+        log_container = st.empty()
+
+        progress_bar = st.progress(0)
+
+        # Core read repair logic start here
+        base_url = cluster_endpoint
+        bearer_token = api_key
+        headers = {"Authorization": f"Bearer {bearer_token}"}
+
+        # Step 3.1: Fetch all object UUIDs for the selected collection.
+        limit = 1000
+        offset = 0
+        all_uuids = []
+        st.session_state["repair_logs"] += f"Fetching objects for '{selected_collection}'...\n"
+        log_container.text_area("Read Repair Logs", st.session_state["repair_logs"], height=300, key="log_fetch_0")
+
+        while True:
+            params_list = {"limit": limit, "offset": offset, "class": selected_collection, "consistency_level": "ALL"}
+            resp = requests.get(f"{base_url}/v1/objects", params=params_list, headers=headers)
+            if resp.status_code != 200:
+                st.session_state["repair_logs"] += f"Error listing objects: {resp.status_code} {resp.text}\n"
+                break
+            data = resp.json()
+            objects_batch = data.get("objects", [])
+            if not objects_batch:
+                break
+            for obj in objects_batch:
+                uuid = obj.get("id")
+                all_uuids.append(uuid)
+            offset += limit
+            update_key = f"log_fetch_{offset}"
+            log_container.text_area("Read Repair Logs", st.session_state["repair_logs"], height=300, key=update_key)
+            time.sleep(0.1)
+
+        st.session_state["repair_logs"] += f"Fetched {len(all_uuids)} objects in '{selected_collection}'.\n"
+        log_container.text_area("Read Repair Logs", st.session_state["repair_logs"], height=300, key="log_fetch_final")
+
+        # Step 3.2: Run read repairs 1 iteration(s)
+        for iteration in range(1, 2):
+            st.session_state["repair_logs"] += f"\n=== Starting Iteration {iteration} ===\n"
+            log_container.text_area("Read Repair Logs", st.session_state["repair_logs"], height=300, key=f"log_iteration_{iteration}")
+            # For each UUID, trigger read repair (consistency_level=ALL) and update logs.
+            for index, uuid in enumerate(all_uuids, start=1):
+                url = f"{base_url}/v1/objects/{selected_collection}/{uuid}"
+                params_single = {"consistency_level": "ALL"}
+                resp_single = requests.get(url, params=params_single, headers=headers)
+                if resp_single.status_code == 200:
+                    st.session_state["repair_logs"] += f"[Iteration {iteration}] [{index}/{len(all_uuids)}] UUID={uuid}\n"
+                    print(st.session_state["repair_logs"])
+                elif resp_single.status_code == 404:
+                    st.session_state["repair_logs"] += f"[Iteration {iteration}] [{index}/{len(all_uuids)}] UUID={uuid} => Not found.\n"
+                    print(st.session_state["repair_logs"])
+                else:
+                    st.session_state["repair_logs"] += f"[Iteration {iteration}] [{index}/{len(all_uuids)}] UUID={uuid} => Error {resp_single.status_code}: {resp_single.text}\n"
+                    print(st.session_state["repair_logs"])
+                log_container.text_area("Read Repair Logs", st.session_state["repair_logs"], height=300, key=f"log_{iteration}_{index}")
+                progress_bar.progress(index / len(all_uuids))
+
+            st.session_state["repair_logs"] += f"=== Iteration {iteration} Complete ===\n"
+            log_container.text_area("Read Repair Logs", st.session_state["repair_logs"], height=300, key=f"log_iteration_{iteration}_complete")
+
+        st.success(f"Read repairs complete for collection '{selected_collection}'.")
