@@ -3,7 +3,7 @@ from utils.connection.weaviate_client import initialize_client
 from utils.cluster.cluster_operations_handlers import action_check_shard_consistency, action_aggregate_collections_tenants, action_collections_configuration, action_metadata, action_nodes_and_shards, action_schema, action_statistics, action_read_repairs
 from utils.sidebar.navigation import navigate
 from utils.connection.weaviate_connection import close_weaviate_client
-from utils.sidebar.helper import update_side_bar_labels
+from utils.sidebar.helper import update_side_bar_labels, clear_session_state
 
 # ------------------------ß--------------------------------------------------
 # Streamlit Page Config
@@ -38,6 +38,7 @@ else:
 	)
 
 if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
+	clear_session_state()
 	if use_local:
 		if initialize_client(cluster_endpoint, cluster_api_key, use_local=True):
 			st.sidebar.success("Connected to local successfully!")
@@ -55,7 +56,7 @@ if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
 if st.sidebar.button("Disconnect", use_container_width=True, type="primary"):
 	if st.session_state.get("client_ready"):
 		message = close_weaviate_client()
-		st.session_state.clear()
+		clear_session_state()
 		st.rerun()
 		st.sidebar.warning(message)
 

@@ -6,6 +6,7 @@ from weaviate.config import AdditionalConfig, Timeout
 _client = None
 
 def get_weaviate_client(cluster_endpoint=None, cluster_api_key=None, use_local=False):
+	print("Connecting to Weaviate...")
 	global _client
 	if _client is None:
 		if use_local:
@@ -29,6 +30,7 @@ def get_weaviate_client(cluster_endpoint=None, cluster_api_key=None, use_local=F
 	return _client
 
 def close_weaviate_client():
+	print("Disconnecting from Weaviate...")
 	global _client
 	if _client:
 		_client.close()
@@ -36,6 +38,7 @@ def close_weaviate_client():
 
 # Weaviate Server & Client status and version
 def status(client):
+	print("Getting Weaviate status...")
 	try:
 		ready = client.is_ready()
 		server_version = client.get_meta()["version"]

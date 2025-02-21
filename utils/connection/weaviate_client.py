@@ -2,6 +2,7 @@ import streamlit as st
 from utils.connection.weaviate_connection import get_weaviate_client, status
 
 def initialize_client(cluster_endpoint, cluster_api_key, use_local=False):
+	print("Initializing Weaviate Client...")
 	try:
 		client = get_weaviate_client(cluster_endpoint, cluster_api_key, use_local)
 		st.session_state.client = client
