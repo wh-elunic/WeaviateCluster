@@ -68,7 +68,7 @@ update_side_bar_labels()
 
 st.title("Weaviate Cluster 🔍")
 st.markdown("---")
-st.markdown("###### Any function with (APIs) can be run without an active connection, but you still need to provide the endpoint and API key in the sidebar input fields:")
+st.markdown("###### Any function with (APIs) means it is run using RESTful endpoints. Otherwise, it is executed through the DB client.")
 
 # --------------------------------------------------------------------------
 # Buttons (calls a function)
@@ -118,7 +118,7 @@ with col7:
 		st.session_state["active_button"] = "check_shard_consistency"
 
 with col8:
-	if st.button("Trigger Read Repair (APIs)", use_container_width=True):
+	if st.button("Read Repair (APIs)", use_container_width=True):
 		st.session_state["active_button"] = "read_repairs"
 
 st.markdown("---")

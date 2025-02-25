@@ -16,6 +16,5 @@ def update_side_bar_labels():
 # Clear the session state
 def clear_session_state():
 	print("Session state cleared!")
-    # for key in list(st.session_state.keys()):
-    #     del st.session_state[key]
-	st.session_state.clear()
+	for key in st.session_state.keys():
+		del st.session_state[key]
