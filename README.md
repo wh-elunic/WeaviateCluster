@@ -65,6 +65,29 @@ requests
 pandas
 ```
 
+Or You can also run the Weaviate Cluster using Docker. Follow the steps below to build the Docker image and run the container:
+
+1. **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/Shah91n/WeaviateCluster.git
+    cd WeaviateCluster
+    ```
+
+2. **Build the Docker image:**
+
+    ```bash
+    docker build -t weaviateclusterapp:latest .
+    ```
+
+3. **Run the Docker container:**
+
+    ```bash
+    docker run -p 8501:8501 --add-host=localhost:host-gateway weaviateclusterapp
+    ```
+
+This will start the Weaviate Cluster, and you can access it by navigating to `http://localhost:8501` in your web browser.
+
 ### How to Run It on a Cloud Cluster
 
 1. Provide the Weaviate endpoint.
