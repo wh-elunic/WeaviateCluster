@@ -78,37 +78,38 @@ def action_aggregate_collections_tenants():
 	else:
 		st.warning("No data to display.")
 
-# Fetch and display collection schema.
-def action_schema():
+# Fetch and display collection properties.
+def action_collection_schema():
 	print("Fetching schema...")
 	schema = get_schema(st.session_state.client)
-	if "error" in schema:
-		st.error(schema["error"])
-	elif schema:
-		st.markdown("#### Collection Properties")
-		for collection_name, collection_details in schema.items():
-			with st.expander(f"Collection: {collection_name}", expanded=False):
-				st.markdown(f"**Name:** {collection_details.name}")
-				st.markdown(f"**Description:** {collection_details.description or 'None'}")
-				st.markdown(f"**Vectorizer:** {collection_details.vectorizer or 'If no vectorizer then could be NamedVectors (check collections config) or its BYOV'}")
-				st.markdown("#### Properties:")
-				properties_data = []
-				for prop in collection_details.properties:
-					properties_data.append({
-						"Property Name": prop.name or "None",
-						"Description": prop.description or "None",
-						"Data Type": str(prop.data_type) or "None",
-						"Searchable": prop.index_searchable,
-						"Filterable": prop.index_filterable,
-						"Tokenization": str(prop.tokenization) or "None",
-						"Vectorizer": prop.vectorizer or "None",
-					})
-				if properties_data:
-					st.dataframe(pd.DataFrame(properties_data), use_container_width=True)
-				else:
-					st.markdown("*No properties found.*")
+	if schema is not None:
+		if "error" in schema:
+			st.error(schema["error"])
+		else:
+			st.markdown("#### Collection Schema & Properties")
+			for collection_name, collection_details in schema.items():
+				with st.expander(f"Collection: {collection_name}", expanded=False):
+					st.markdown(f"**Name:** {collection_details.name}")
+					st.markdown(f"**Description:** {collection_details.description or 'None'}")
+					st.markdown(f"**Vectorizer:** {collection_details.vectorizer or 'If no vectorizer then could be NamedVectors (check collections config) or its BYOV'}")
+					st.markdown("#### Properties:")
+					properties_data = []
+					for prop in collection_details.properties:
+						properties_data.append({
+							"Property Name": prop.name or "None",
+							"Description": prop.description or "None",
+							"Data Type": str(prop.data_type) or "None",
+							"Searchable": prop.index_searchable,
+							"Filterable": prop.index_filterable,
+							"Tokenization": str(prop.tokenization) or "None",
+							"Vectorizer": prop.vectorizer or "None",
+						})
+					if properties_data:
+						st.dataframe(pd.DataFrame(properties_data), use_container_width=True)
+					else:
+						st.markdown("*No properties found.*")
 	else:
-		st.warning("No schema details available.")
+		st.warning("No collection(s) available.")
 
 # Fetch and display cluster statistics (RAFT).
 def action_statistics(cluster_endpoint, api_key):
@@ -293,19 +294,24 @@ def action_read_repairs(cluster_endpoint, api_key):
     st.markdown(f"### Inconsistent {total} collections")
     st.dataframe(df_inconsistent.astype(str), use_container_width=True)
 
-    # Step 2: Radio button for selecting the collection to repair.
-    if "selected_collection" not in st.session_state:
-        st.session_state.selected_collection = inconsistent_collections[0]  # Default to first collection
+    # Step 2: Synchronize selected_collection with repair_collections.
+    if "selected_collection" not in st.session_state or st.session_state.selected_collection not in st.session_state.repair_collections:
+        st.session_state.selected_collection = st.session_state.repair_collections[0] if st.session_state.repair_collections else None
 
-    selected_collection = st.radio(
-        "Select a collection to repair",
-        st.session_state.repair_collections,
-        index=st.session_state.repair_collections.index(st.session_state.selected_collection),
-        key="collection_radio"
-    )
-    st.session_state.selected_collection = selected_collection
+    # Radio button for selecting the collection to repair, only if there are collections.
+    if st.session_state.repair_collections:
+        selected_collection = st.radio(
+            "Select a collection to repair",
+            st.session_state.repair_collections,
+            index=st.session_state.repair_collections.index(st.session_state.selected_collection) if st.session_state.selected_collection in st.session_state.repair_collections else 0,
+            key="collection_radio"
+        )
+        st.session_state.selected_collection = selected_collection
+    else:
+        st.info("No inconsistent collections to repair.")
+        st.session_state.selected_collection = None
 
-	# Stop any ongoing read repairs.
+    # Stop any ongoing read repairs.
     if st.button("Stop the process", use_container_width=True):
         print("Stopping read repairs...")
         if 'repair_in_progress' in st.session_state:
@@ -321,16 +327,8 @@ def action_read_repairs(cluster_endpoint, api_key):
 
     # Refresh the collections list when the button is clicked.
     if st.button("Refresh Collections", use_container_width=True):
-        print("Refreshing collections...")
-        node_info = get_shards_info(st.session_state.client)
-        df_inconsistent = check_shard_consistency(node_info)
-        if df_inconsistent is not None:
-            inconsistent_collections = list(df_inconsistent["Collection"].unique())
-            st.session_state.repair_collections = inconsistent_collections
-        else:
-            st.session_state.repair_collections = []
-        st.success("Collections refreshed.")
-
+       st.success("Collections list refreshed.")
+		
     # Step 3: Trigger read repairs.
     if st.button("Start Read Repairs", use_container_width=True):
         print("Starting read repairs...")

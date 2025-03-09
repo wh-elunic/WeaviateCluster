@@ -62,7 +62,7 @@ def get_object_details():
             st.session_state.button_result = st.error(f"An error occurred while checking the object on nodes: {e}")
 
 def main():
-    st.title("Objects 📦")
+    st.title("Object 📦")
 
     navigate()
 

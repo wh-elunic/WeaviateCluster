@@ -11,6 +11,7 @@ def get_weaviate_client(cluster_endpoint=None, cluster_api_key=None, use_local=F
 	if _client is None:
 		if use_local:
 			_client = weaviate.connect_to_local(
+				auth_credentials=weaviate.auth.AuthApiKey(cluster_api_key),
 				skip_init_checks=True,
 				additional_config=AdditionalConfig(
 					timeout=Timeout(init=90, query=900, insert=900)
