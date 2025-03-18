@@ -18,6 +18,7 @@ def action_nodes_and_shards():
 		node_table = processed_data["node_data"]
 		shard_table = processed_data["shard_data"]
 		collection_shard_table = processed_data["collection_shard_data"]
+		readonly_shards_table = processed_data["readonly_shards"]
 
 		st.markdown("#### Node Details")
 		if not node_table.empty:
@@ -25,7 +26,6 @@ def action_nodes_and_shards():
 		else:
 			st.warning("No node details available.")
 
-		# Display Shard Collections Details Count under Node Details
 		st.markdown("#### Shard Count")
 		if not collection_shard_table.empty:
 			st.dataframe(collection_shard_table, use_container_width=True)
@@ -37,6 +37,14 @@ def action_nodes_and_shards():
 			st.dataframe(shard_table.astype(str), use_container_width=True)
 		else:
 			st.warning("No shard details available.")
+
+		# Readonly shards section
+		st.markdown("#### Read-only Shards")
+		if not readonly_shards_table.empty:
+			st.dataframe(readonly_shards_table[["Node Name", "Class", "Shard Name", "Object Count"]].astype(str), use_container_width=True)
+		else:
+			st.info("No read-only shards found in the cluster.")
+
 	else:
 		st.error("Failed to retrieve node and shard details.")
 
@@ -59,24 +67,74 @@ def action_check_shard_consistency():
 # Aggregate collections and tenants.
 def action_aggregate_collections_tenants():
 	print("Aggregating collections and tenants...")
-	st.markdown("###### Collections & Tenants aggregation can take a while to complete due to the large amount of data and the loop through all collections & Tenants.")
+	st.markdown("###### Collections & Tenants aggregation time may vary depending on the dataset size, as it iterates through all collections and tenants. Check below for tables with statistics.")
 	result = aggregate_collections(st.session_state.client)
 	if "error" in result:
 		st.error(f"Error retrieving collections: {result['error']}")
 		return
 
+	# Display collection statistics
 	collection_count = result["collection_count"]
-	st.markdown(f"###### Total Number of Collections: **{collection_count}**\n")
+	st.markdown(f"###### Total Number of Collections: **{collection_count}**")
+	
+	# Display empty collections with yellow warning
+	empty_collections = result["empty_collections"]
+	if empty_collections > 0:
+		st.warning(f"###### Total Number of Collections with Zero Objects: **{empty_collections}**")
+	else:
+		st.markdown(f"###### Total Number of Collections with Zero Objects: **N/A**")
 
+	# Display tenant statistics
 	total_tenants_count = result["total_tenants_count"]
 	if total_tenants_count > 0:
-		st.markdown(f"###### Total Number of Tenants: **{total_tenants_count}**\n")
+		st.markdown(f"###### Total Number of Tenants: **{total_tenants_count}**")
+		
+		# Display empty tenants with yellow warning
+		empty_tenants = result["empty_tenants"]
+		if empty_tenants > 0:
+			st.warning(f"###### Total Number of Tenants with Zero Objects: **{empty_tenants}**")
+		else:
+			st.markdown(f"###### Total Number of Tenants with Zero Objects: **N/A**")
+	
+	# Display object counts
+	total_regular = result["total_objects_regular"]
+	if total_regular > 0:
+		st.markdown(f"###### Total Objects in Regular Collections: **{total_regular:,}**")
+	else:
+		st.markdown(f"###### Total Objects in Regular Collections: **N/A**")
 
+	total_multitenancy = result["total_objects_multitenancy"]
+	if total_multitenancy > 0:
+		st.markdown(f"###### Total Objects in Multitenancy Collections: **{total_multitenancy:,}**")
+	else:
+		st.markdown(f"###### Total Objects in Multitenancy Collections: **N/A**")
+
+	total_combined = result["total_objects_combined"]
+	if total_combined > 0:
+		st.markdown(f"###### Total Objects (All Collections Combined): **{total_combined:,}**")
+	else:
+		st.markdown(f"###### Total Objects (All Collections Combined): **N/A**")
+
+	# Display the main dataframe
 	result_df = result["result_df"]
 	if not result_df.empty:
 		st.dataframe(result_df.astype(str), use_container_width=True)
 	else:
 		st.warning("No data to display.")
+
+	# Display empty collections table if any exist
+	empty_collections_list = result["empty_collections_list"]
+	if empty_collections_list:
+		st.markdown("#### Collections with Zero Objects")
+		empty_collections_df = pd.DataFrame(empty_collections_list)
+		st.dataframe(empty_collections_df, use_container_width=True)
+
+	# Display empty tenants table if any exist
+	empty_tenants_details = result["empty_tenants_details"]
+	if empty_tenants_details:
+		st.markdown("#### Tenants with Zero Objects")
+		empty_tenants_df = pd.DataFrame(empty_tenants_details)
+		st.dataframe(empty_tenants_df, use_container_width=True)
 
 # Fetch and display collection properties.
 def action_collection_schema():
@@ -131,9 +189,21 @@ def action_statistics(cluster_endpoint, api_key):
 		else:
 			st.error("Cluster is Synchronized: ❌")
 
+		# Display main statistics
 		flattened_data = processed_stats["data"]
-		df = pd.DataFrame(flattened_data)
-		st.dataframe(df.astype(str), use_container_width=True)
+		st.dataframe(flattened_data, use_container_width=True)
+
+		# Display network information
+		st.markdown("##### Network Information")
+		network_df = processed_stats["network_info"]
+		if not network_df.empty:
+			st.dataframe(network_df, use_container_width=True)
+
+		# Display latest configuration
+		st.markdown("##### Latest Configuration")
+		latest_config_df = processed_stats["latest_config"]
+		if not latest_config_df.empty:
+			st.dataframe(latest_config_df, use_container_width=True)
 
 	except Exception as e:
 		st.error(f"Error fetching cluster statistics: {e}")
@@ -147,21 +217,23 @@ def action_metadata(cluster_endpoint, api_key):
 	if "error" in metadata_result:
 		st.error(metadata_result["error"])
 	else:
+		# Display general metadata
 		general_metadata_df = metadata_result["general_metadata_df"]
-		st.markdown("###### General Metadata Information")
-		st.dataframe(general_metadata_df.astype(str), use_container_width=True)
+		st.markdown("##### General Information")
+		st.dataframe(general_metadata_df, use_container_width=True)
 
-		modules_df = metadata_result["modules_df"]
-		if not modules_df.empty:
-			st.markdown("###### Module Details")
-			st.dataframe(modules_df.astype(str), use_container_width=True)
+		# Display standard modules
+		standard_modules_df = metadata_result["standard_modules_df"]
+		if not standard_modules_df.empty:
+			st.markdown("##### Modules")
+			st.dataframe(standard_modules_df, use_container_width=True)
 
-		nested_module_data = metadata_result["nested_module_data"]
-		if nested_module_data:
-			for module_name, nested_df in nested_module_data.items():
-				st.markdown(f"###### Details for Module: **{module_name}**")
-				st.dataframe(nested_df.astype(str), use_container_width=True)
-				
+		# Display other modules
+		other_modules_df = metadata_result["other_modules_df"]
+		if not other_modules_df.empty:
+			st.markdown("##### Other Modules")
+			st.dataframe(other_modules_df, use_container_width=True)
+
 # Fetch and display collection configurations.
 def action_collections_configuration(cluster_endpoint, api_key):
 	print("Fetching collection configurations...")
@@ -191,7 +263,7 @@ def action_collections_configuration(cluster_endpoint, api_key):
 		st.warning("No collections available to display.")
 		return
 
-# Fetch the chosen collection’s config
+# Fetch the chosen collection's config
 	if st.button("Get Configuration", use_container_width=True):
 		config = fetch_collection_config(cluster_endpoint, api_key, selected_collection)
 		if "error" in config:
