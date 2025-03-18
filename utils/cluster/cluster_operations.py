@@ -1,6 +1,8 @@
 import requests
 import pandas as pd
 from collections import defaultdict
+import streamlit as st
+import json
 
 # Get shards information
 def get_shards_info(client):
@@ -11,8 +13,11 @@ def process_shards_data(node_info):
     node_data = []
     shard_data = []
     collection_shard_counts = []
+    readonly_shards = []
 
     for node in node_info:
+        print(f"Processing node: {node.name}")
+        
         # Node-level data
         node_data.append({
             "Node Name": node.name,
@@ -27,8 +32,8 @@ def process_shards_data(node_info):
         collection_counts = {}
 
         # Shard-level data for each node
-        for shard in node.shards:
-            shard_data.append({
+        for shard in node.shards:            
+            shard_info = {
                 "Node Name": node.name,
                 "Class": shard.collection,
                 "Shard Name": shard.name,
@@ -36,8 +41,13 @@ def process_shards_data(node_info):
                 "Index Status": shard.vector_indexing_status,
                 "Vector Queue Length": shard.vector_queue_length,
                 "Compressed": shard.compressed,
-                "Loaded": shard.loaded,
-            })
+                "Loaded": shard.loaded
+            }
+            shard_data.append(shard_info)
+
+            # Check specifically for READONLY status
+            if hasattr(shard, 'vector_indexing_status') and shard.vector_indexing_status == "READONLY":
+                readonly_shards.append(shard_info)
 
             # Increment count for this collection on the current node
             collection_counts[shard.collection] = collection_counts.get(shard.collection, 0) + 1
@@ -52,8 +62,9 @@ def process_shards_data(node_info):
 
     return {
         "node_data": pd.DataFrame(node_data),
-        "shard_data": pd.DataFrame(shard_data),
-        "collection_shard_data": pd.DataFrame(collection_shard_counts)
+        "shard_data": pd.DataFrame(shard_data), 
+        "collection_shard_data": pd.DataFrame(collection_shard_counts),
+        "readonly_shards": pd.DataFrame(readonly_shards) if readonly_shards else pd.DataFrame()
     }
 
 
@@ -116,95 +127,118 @@ def fetch_cluster_statistics(cluster_url, api_key):
 
 
 def process_statistics(stats):
+    if "statistics" not in stats:
+        return {"error": "Invalid statistics data received."}
 
-	if "statistics" not in stats:
-		return {"error": "Invalid statistics data received."}
+    flattened_data = []
+    latest_config_data = []
+    network_info = []
+    synchronized = stats.get("synchronized", False)
+    
+    for node in stats["statistics"]:
+        # Base data for node statistics
+        base_data = {
+            "Node Name": node.get("name", "N/A"),
+            "Leader ID": node.get("leaderId", "N/A"),
+            "Leader Address": node.get("leaderAddress", "N/A"),
+            "State": node.get("raft", {}).get("state", "N/A"),
+            "Status": node.get("status", "N/A"),
+            "Ready": node.get("ready", "N/A"),
+            "DB Loaded": node.get("dbLoaded", "N/A"),
+            "Open": node.get("open", "N/A"),
+            "Is Voter": node.get("isVoter", "N/A"),
+            "Applied Index": node.get("raft", {}).get("appliedIndex", "N/A"),
+            "Commit Index": node.get("raft", {}).get("commitIndex", "N/A"),
+            "Last Contact": node.get("raft", {}).get("lastContact", "N/A"),
+            "Last Log Index": node.get("raft", {}).get("lastLogIndex", "N/A"),
+            "Last Log Term": node.get("raft", {}).get("lastLogTerm", "N/A"),
+            "Initial Last Applied Index": node.get("initialLastAppliedIndex", "N/A"),
+            "Num Peers": node.get("raft", {}).get("numPeers", "N/A"),
+            "Term": node.get("raft", {}).get("term", "N/A"),
+            "FSM Pending": node.get("raft", {}).get("fsmPending", "N/A"),
+            "Last Snapshot Index": node.get("raft", {}).get("lastSnapshotIndex", "N/A"),
+            "Last Snapshot Term": node.get("raft", {}).get("lastSnapshotTerm", "N/A"),
+            "Protocol Version": node.get("raft", {}).get("protocolVersion", "N/A"),
+            "Protocol Version Max": node.get("raft", {}).get("protocolVersionMax", "N/A"),
+            "Protocol Version Min": node.get("raft", {}).get("protocolVersionMin", "N/A"),
+            "Snapshot Version Max": node.get("raft", {}).get("snapshotVersionMax", "N/A"),
+            "Snapshot Version Min": node.get("raft", {}).get("snapshotVersionMin", "N/A"),
+        }
+        flattened_data.append(base_data)
 
-	flattened_data = []
-	synchronized = stats.get("synchronized", False)
+        # Process latestConfiguration
+        latest_config = node.get("raft", {}).get("latestConfiguration", [])
+        for config in latest_config:
+            # Extract network info
+            address = config.get("address", "N/A")
+            if ":" in address:
+                ip, port = address.rsplit(":", 1)
+                network_info.append({
+                    "Pod": config.get("id", "N/A"),
+                    "IP": ip,
+                    "Port": port
+                })
 
-	for node in stats["statistics"]:
-		base_data = {
-			"Node Name": node.get("name", "N/A"),
-			"Leader ID": node.get("leaderId", "N/A"),
-			"Leader Address": node.get("leaderAddress", "N/A"),
-			"State": node.get("raft", {}).get("state", "N/A"),
-			"Status": node.get("status", "N/A"),
-			"Ready": node.get("ready", "N/A"),
-			"DB Loaded": node.get("dbLoaded", "N/A"),
-			"Open": node.get("open", "N/A"),
-			"Is Voter": node.get("isVoter", "N/A"),
-			"Applied Index": node.get("raft", {}).get("appliedIndex", "N/A"),
-			"Commit Index": node.get("raft", {}).get("commitIndex", "N/A"),
-			"Last Contact": node.get("raft", {}).get("lastContact", "N/A"),
-			"Last Log Index": node.get("raft", {}).get("lastLogIndex", "N/A"),
-			"Last Log Term": node.get("raft", {}).get("lastLogTerm", "N/A"),
-			"Initial Last Applied Index": node.get("initialLastAppliedIndex", "N/A"),
-			"Num Peers": node.get("raft", {}).get("numPeers", "N/A"),
-			"Term": node.get("raft", {}).get("term", "N/A"),
-			"FSM Pending": node.get("raft", {}).get("fsmPending", "N/A"),
-			"Last Snapshot Index": node.get("raft", {}).get("lastSnapshotIndex", "N/A"),
-			"Last Snapshot Term": node.get("raft", {}).get("lastSnapshotTerm", "N/A"),
-			"Protocol Version": node.get("raft", {}).get("protocolVersion", "N/A"),
-			"Protocol Version Max": node.get("raft", {}).get("protocolVersionMax", "N/A"),
-			"Protocol Version Min": node.get("raft", {}).get("protocolVersionMin", "N/A"),
-			"Snapshot Version Max": node.get("raft", {}).get("snapshotVersionMax", "N/A"),
-			"Snapshot Version Min": node.get("raft", {}).get("snapshotVersionMin", "N/A"),
-		}
-		flattened_data.append(base_data)
+            config_data = {
+                "Node Name": node.get("name", "N/A"),
+                "Node State": node.get("raft", {}).get("state", "N/A"),
+                "Peer ID": config.get("id", "N/A"),
+                "Peer Address": address,
+                "Peer Suffrage": "Voter" if config.get("suffrage") == 0 else "Non-Voter"
+            }
+            latest_config_data.append(config_data)
 
-	return {"data": flattened_data, "synchronized": synchronized}
+    df_data = pd.DataFrame(flattened_data).fillna("N/A")
+    df_config = pd.DataFrame(latest_config_data).fillna("N/A")
+    df_network = pd.DataFrame(network_info).drop_duplicates().fillna("N/A")
+
+    return {
+        "data": df_data,
+        "synchronized": synchronized,
+        "latest_config": df_config,
+        "network_info": df_network
+    }
 
 def get_metadata(cluster_url, api_key):
-	try:
-		url = f"{cluster_url}/v1/meta"
-		headers = {"Authorization": f"Bearer {api_key}"}
-		response = requests.get(url, headers=headers)
-		response.raise_for_status()
+    try:
+        metadata = st.session_state.client.get_meta()
 
-		metadata = response.json()
+        # Process general metadata (excluding modules)
+        general_metadata = {
+            key: value for key, value in metadata.items() if key != "modules"
+        }
+        general_metadata_df = pd.DataFrame(general_metadata.items(), columns=["Key", "Value"]).fillna("N/A")
 
-		# General metadata (excluding 'modules')
-		general_metadata = {
-			key: value for key, value in metadata.items() if key != "modules"
-		}
-		general_metadata_df = pd.DataFrame(general_metadata.items(), columns=["Key", "Value"])
+        # Process modules
+        modules_data = metadata.get("modules", {})
+        standard_modules = []  # For modules with standard structure (name + documentationHref)
+        other_modules = []     # For modules with different structure
 
-		# Extract module details
-		modules_data = metadata.get("modules", {})
-		module_list = []
-		nested_module_data = {}
+        for module_name, module_details in modules_data.items():
+            if isinstance(module_details, dict):
+                if "name" in module_details and "documentationHref" in module_details:
+                    standard_modules.append({
+                        "Module": module_name,
+                        "Name": module_details.get("name", "N/A"),
+                        "Documentation": module_details.get("documentationHref", "N/A")
+                    })
+                else:
+                    # Other module format
+                    other_module = {"Module": module_name}
+                    other_module.update({k: v if v is not None else "N/A" for k, v in module_details.items()})
+                    other_modules.append(other_module)
 
-		for module_name, module_details in modules_data.items():
-			# Basic module info
-			module_info = {
-				"Module Name": module_name,
-				"Description": module_details.get("name", "N/A"),
-				"Documentation URL": module_details.get("documentationHref", "N/A"),
-			}
-			module_list.append(module_info)
+        standard_modules_df = pd.DataFrame(standard_modules).fillna("N/A") if standard_modules else pd.DataFrame()
+        other_modules_df = pd.DataFrame(other_modules).fillna("N/A") if other_modules else pd.DataFrame()
 
-			# Nested details (if present) for a specific module
-			nested_data = {
-				key: value
-				for key, value in module_details.items()
-				if key not in ["name", "documentationHref"]
-			}
-			if nested_data:
-				nested_module_data[module_name] = pd.DataFrame(
-					nested_data.items(), columns=["Key", "Value"]
-				)
+        return {
+            "general_metadata_df": general_metadata_df,
+            "standard_modules_df": standard_modules_df,
+            "other_modules_df": other_modules_df
+        }
 
-		modules_df = pd.DataFrame(module_list) if module_list else pd.DataFrame()
-
-		return {
-			"general_metadata_df": general_metadata_df,
-			"modules_df": modules_df,
-			"nested_module_data": nested_module_data,
-		}
-
-	except requests.exceptions.RequestException as e:
-		return {"error": f"Failed to fetch cluster metadata: {e}"}
+    except Exception as e:
+        return {"error": f"Failed to fetch cluster metadata: {e}"}
 
 # Trigger read repairs for a collection to force consistency
 def read_repairs(cluster_url, api_key, collection_name):

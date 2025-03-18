@@ -127,7 +127,7 @@ with col5:
 		st.session_state["active_button"] = "statistics"
 
 with col6:
-	if st.button("Metadata (APIs)",use_container_width=True):
+	if st.button("Metadata",use_container_width=True):
 		st.session_state["active_button"] = "metadata"
 
 with col7:
