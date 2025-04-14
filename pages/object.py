@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.objects.objects import get_object_in_collection, display_object_as_table, find_object_in_collection_on_nodes, get_object_in_tenant, find_object_in_tenant_on_nodes
+from utils.objects.object import get_object_in_collection, display_object_as_table, find_object_in_collection_on_nodes, get_object_in_tenant, find_object_in_tenant_on_nodes
 from utils.sidebar.navigation import navigate
 from utils.sidebar.helper import update_side_bar_labels
 
