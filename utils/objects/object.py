@@ -4,7 +4,7 @@ import requests
 # Get object in Non Multitenant collection
 def get_object_in_collection(client, collection_name, uuid):
 	collection = client.collections.get(collection_name)
-	data_object = collection.query.fetch_object_by_id(uuid)
+	data_object = collection.query.fetch_object_by_id(uuid, include_vector=True)
 
 	if data_object is None:
 		print(f"Object with UUID '{uuid}' not found.")
@@ -15,7 +15,7 @@ def get_object_in_collection(client, collection_name, uuid):
 # Get object in Multitenant collection
 def get_object_in_tenant(client, collection_name, uuid, tenant):
 	collection = client.collections.get(collection_name).with_tenant(tenant)
-	data_object = collection.query.fetch_object_by_id(uuid)
+	data_object = collection.query.fetch_object_by_id(uuid, include_vector=True)
 
 	if data_object is None:
 		print(f"Object with UUID '{uuid}' not found.")
@@ -28,32 +28,26 @@ def display_object_as_table(data_object):
 		print("No data to display.")
 		return
 
-	meta_fields = {
-		"metadata.creation_time": data_object.metadata.creation_time,
-		"metadata.last_update_time": data_object.metadata.last_update_time,
-		"metadata.is_consistent": data_object.metadata.is_consistent
+	metadata_fields = {
+		"Creation Time": data_object.metadata.creation_time,
+		"Last Update Time": data_object.metadata.last_update_time,
 	}
 
-	flattened_data = {
-		"uuid": str(data_object.uuid),
-		"collection": data_object.collection
+	additional_data = {
+		"UUID": str(data_object.uuid),
+		"Collection": data_object.collection,
+		"Vectors": data_object.vector
 	}
 
-	flattened_data.update(meta_fields)
+	additional_data.update(metadata_fields)
 
 	if data_object.properties:
 		for key, value in data_object.properties.items():
-			flattened_data[key] = value
+			additional_data[key] = value
 
-	df = pd.DataFrame([flattened_data])
+	df = pd.DataFrame([additional_data])
 
 	return df
-
-
-def list_all_uuids(client, collection_name):
-	"""Fetch all UUIDs from the collection."""
-	collection = client.collections.get(collection_name)
-	return [item.uuid for item in collection.iterator()]
 
 def find_object_in_collection_on_nodes(client_endpoint, api_key, collection_name, object_uuid):
 
