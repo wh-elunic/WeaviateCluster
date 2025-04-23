@@ -11,7 +11,10 @@ Interact with and manage Weaviate Cluster operations. This app provides tools to
 ## Features
 
 - **Shards & Nodes**: View shard details across nodes as well as node details.
-- **Collections & Tenants**: Aggregate and view collections and their tenants.
+- **Collections & Tenants**: 
+   - Aggregate and view collections and their tenants.
+   - Delete collections and tenants (⚠️ Admin API-Key required).
+        - Batch deletion support for multiple collections or tenants.
 - **Collections Configuration**: Explore collection configurations.
 - **Schema**: Fetch and view the schema configuration of your Weaviate cluster.
 - **Statistics**: Analyze cluster synchronization and node statistics.
@@ -58,7 +61,7 @@ Interact with and manage Weaviate Cluster operations. This app provides tools to
     streamlit run streamlit_app.py
     ```
 
-If you haven’t already created a `requirements.txt` file, here’s what it should look like:
+If you haven't already created a `requirements.txt` file, here's what it should look like:
 
 ```text
 streamlit
