@@ -205,9 +205,9 @@ def get_metadata(cluster_url, api_key):
 
         # Process general metadata (excluding modules)
         general_metadata = {
-            key: value for key, value in metadata.items() if key != "modules"
+            key: str(value) for key, value in metadata.items() if key != "modules"
         }
-        general_metadata_df = pd.DataFrame(general_metadata.items(), columns=["Key", "Value"]).fillna("N/A")
+        general_metadata_df = pd.DataFrame(general_metadata.items(), columns=["Key", "Value"])
 
         # Process modules
         modules_data = metadata.get("modules", {})
@@ -218,18 +218,19 @@ def get_metadata(cluster_url, api_key):
             if isinstance(module_details, dict):
                 if "name" in module_details and "documentationHref" in module_details:
                     standard_modules.append({
-                        "Module": module_name,
-                        "Name": module_details.get("name", "N/A"),
-                        "Documentation": module_details.get("documentationHref", "N/A")
+                        "Module": str(module_name),
+                        "Name": str(module_details.get("name", "N/A")),
+                        "Documentation": str(module_details.get("documentationHref", "N/A"))
                     })
                 else:
                     # Other module format
-                    other_module = {"Module": module_name}
-                    other_module.update({k: v if v is not None else "N/A" for k, v in module_details.items()})
+                    other_module = {"Module": str(module_name)}
+                    other_module.update({k: str(v) if v is not None else "N/A" 
+                                       for k, v in module_details.items()})
                     other_modules.append(other_module)
 
-        standard_modules_df = pd.DataFrame(standard_modules).fillna("N/A") if standard_modules else pd.DataFrame()
-        other_modules_df = pd.DataFrame(other_modules).fillna("N/A") if other_modules else pd.DataFrame()
+        standard_modules_df = pd.DataFrame(standard_modules) if standard_modules else pd.DataFrame()
+        other_modules_df = pd.DataFrame(other_modules) if other_modules else pd.DataFrame()
 
         return {
             "general_metadata_df": general_metadata_df,

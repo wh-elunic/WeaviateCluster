@@ -45,6 +45,10 @@ else:
 		placeholder="Enter Cluster Endpoint (URL)", 
 		value=st.session_state.get("cluster_endpoint", "")
 	).strip()
+	# Check if the URL has https:// prefix, if not add it
+	if cluster_endpoint and not cluster_endpoint.startswith('https://'):
+		cluster_endpoint = f"https://{cluster_endpoint}"
+		
 	cluster_api_key = st.sidebar.text_input(
 		"Cloud Cluster API Key", 
 		placeholder="Enter Cluster Admin Key", 
