@@ -10,7 +10,9 @@ Interact with and manage Weaviate Cluster operations. This app provides tools to
 
 ## Features
 
-- **Shards & Nodes**: View shard details across nodes as well as node details.
+- **Shards & Nodes**: 
+   - View shard details across nodes as well as node details.
+   - Update read-only shards to READY status (⚠️ Admin API-Key required).
 - **Collections & Tenants**: 
    - Aggregate and view collections and their tenants.
    - Delete collections and tenants (⚠️ Admin API-Key required).

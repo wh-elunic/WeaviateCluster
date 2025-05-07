@@ -42,9 +42,22 @@ def action_nodes_and_shards():
 		st.markdown("#### Read-only Shards")
 		if not readonly_shards_table.empty:
 			st.dataframe(readonly_shards_table[["Node Name", "Class", "Shard Name", "Object Count"]].astype(str), use_container_width=True)
+			st.warning("⬇️ This operation requires administrator privileges. Please ensure you are connected with an admin API key.")
+			if st.button("Set all Read-only Shards to READY", type="primary"):
+				readonly_groups = readonly_shards_table.groupby("Class")["Shard Name"].apply(list).to_dict()
+				for collection_name, shard_names in readonly_groups.items():
+					try:
+						coll = st.session_state.client.collections.get(collection_name)
+						result = coll.config.update_shards(
+							status="READY",
+							shard_names=shard_names
+						)
+						st.success(f"Updated {len(shard_names)} shard(s) in '{collection_name}' to READY.")
+						st.success(result)
+					except Exception as e:
+						st.error(f"Failed to update shards in '{collection_name}': {e}")
 		else:
 			st.info("No read-only shards found in the cluster.")
-
 	else:
 		st.error("Failed to retrieve node and shard details.")
 
