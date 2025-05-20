@@ -26,13 +26,17 @@ use_local = st.sidebar.checkbox("Local Cluster", value=False)
 
 if use_local:
 	st.sidebar.markdown(
-		'This option requires cloning the repository from [**Shah91n -> WeaviateCluster**](https://github.com/Shah91n/WeaviateCluster) GitHub and following the installation requirements. Then ensure that you have a local Weaviate instance (http://localhost:8080) running on your machine before attempting to connect.'
+		'This option requires cloning the repository from [**Shah91n -> WeaviateCluster**](https://github.com/Shah91n/WeaviateCluster) GitHub and following the installation requirements. Then ensure that you have a local Weaviate instance running on your machine before attempting to connect.'
 	)
 	cluster_endpoint = st.sidebar.text_input(
 		"Local Cluster Endpoint", 
 		value="http://localhost:8080", 
-		disabled=True
+		placeholder="Enter Local Cluster URL"
 	).strip()
+	# Check if the URL has http:// prefix, if not add it
+	if cluster_endpoint and not cluster_endpoint.startswith('http://') and not cluster_endpoint.startswith('https://'):
+		cluster_endpoint = f"http://{cluster_endpoint}"
+		
 	cluster_api_key = st.sidebar.text_input(
 		"Local Cluster API Key", 
 		placeholder="Enter Cluster Admin Key", 
@@ -65,8 +69,8 @@ if st.sidebar.button("Connect", use_container_width=True, type="secondary"):
 		else:
 			st.sidebar.error("Connection failed!")
 	else:
-		if not cluster_endpoint or not cluster_api_key:
-			st.sidebar.error("Please insert the cluster endpoint and API key!")
+		if not cluster_endpoint:
+			st.sidebar.error("Please insert the cluster endpoint!")
 		else:
 			if initialize_client(cluster_endpoint, cluster_api_key, use_local=False):
 				st.sidebar.success("Connected successfully!")

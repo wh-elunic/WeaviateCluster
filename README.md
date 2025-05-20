@@ -13,6 +13,9 @@ Interact with and manage Weaviate Cluster operations. This app provides tools to
 - **Shards & Nodes**: 
    - View shard details across nodes as well as node details.
    - Update read-only shards to READY status (⚠️ Admin API-Key required).
+- **Configurable Local Connections**:
+   - Customize the URL for local Weaviate instances instead of being limited to localhost:8080.
+   - Connect with or without authentication based on your Weaviate configuration.
 - **Collections & Tenants**: 
    - Aggregate and view collections and their tenants.
    - Delete collections and tenants (⚠️ Admin API-Key required).

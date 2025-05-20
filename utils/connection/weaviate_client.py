@@ -10,7 +10,7 @@ def initialize_client(cluster_endpoint, cluster_api_key, use_local=False):
 		st.session_state.client_ready = ready
 		st.session_state.server_version = server_version
 		st.session_state.client_version = client_version
-		st.session_state.cluster_endpoint = cluster_endpoint if not use_local else "http://localhost:8080"
+		st.session_state.cluster_endpoint = cluster_endpoint
 		st.session_state.cluster_api_key = cluster_api_key
 		return True
 	except Exception as e:
